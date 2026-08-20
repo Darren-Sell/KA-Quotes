@@ -57,7 +57,10 @@ CREATE TABLE IF NOT EXISTS settings (
     default_tax REAL NOT NULL DEFAULT 20,
     prefix TEXT NOT NULL DEFAULT 'KA-Q-',
     next_num INTEGER NOT NULL DEFAULT 1001,
-    default_notes TEXT NOT NULL DEFAULT ''
+    default_notes TEXT NOT NULL DEFAULT '',
+    vat_number TEXT NOT NULL DEFAULT '',
+    company_number TEXT NOT NULL DEFAULT '',
+    logo_data TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS products (
@@ -89,6 +92,7 @@ CREATE TABLE IF NOT EXISTS quotes (
     discount REAL NOT NULL DEFAULT 0,
     tax REAL NOT NULL DEFAULT 0,
     notes TEXT NOT NULL DEFAULT '',
+    summary TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'draft',
     created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
     updated_by TEXT REFERENCES users(id) ON DELETE SET NULL,
@@ -118,6 +122,10 @@ CREATE INDEX IF NOT EXISTS idx_quotes_customer_id ON quotes(customer_id);
 MIGRATIONS = [
     ("settings", "default_notes", "TEXT NOT NULL DEFAULT ''"),
     ("quote_items", "part_number", "TEXT NOT NULL DEFAULT ''"),
+    ("settings", "vat_number", "TEXT NOT NULL DEFAULT ''"),
+    ("settings", "company_number", "TEXT NOT NULL DEFAULT ''"),
+    ("settings", "logo_data", "TEXT NOT NULL DEFAULT ''"),
+    ("quotes", "summary", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 

@@ -160,6 +160,7 @@ td.desc-cell { white-space: pre-line; vertical-align: top; padding-top: 10px; }
   padding: 44px 48px; box-shadow: 0 20px 60px rgba(0,0,0,0.35);
 }
 .preview-sheet .p-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
+.preview-sheet .p-logo { display: block; max-height: 56px; max-width: 220px; margin-bottom: 10px; }
 .preview-sheet .p-brand { font-size: 20px; font-weight: 700; }
 .preview-sheet .p-brand-sub { font-size: 12px; color: #555; white-space: pre-line; margin-top: 4px; }
 .preview-sheet .p-title { text-align: right; }
@@ -176,6 +177,7 @@ td.desc-cell { white-space: pre-line; vertical-align: top; padding-top: 10px; }
 .preview-sheet .p-totals .row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
 .preview-sheet .p-totals .row.grand { border-top: 2px solid #111; margin-top: 6px; padding-top: 8px; font-size: 16px; font-weight: 700; }
 .preview-sheet .p-notes { margin-top: 26px; font-size: 12px; color: #444; white-space: pre-line; border-top: 1px solid #ddd; padding-top: 14px; }
+.preview-sheet .p-summary { margin-bottom: 24px; font-size: 13px; color: #222; white-space: pre-line; }
 .preview-actions { display: flex; justify-content: center; gap: 10px; margin: 16px 0 40px; }
 .preview-actions button { background: #fff; }
 
@@ -209,6 +211,33 @@ td.desc-cell { white-space: pre-line; vertical-align: top; padding-top: 10px; }
      in half at the page boundary. */
   .preview-sheet tr { break-inside: avoid; }
   .preview-sheet thead { display: table-header-group; } /* repeat column headers on each new page */
+}
+
+/* Page numbers + a repeating company/VAT footer, printed via CSS Paged
+   Media margin boxes (Chrome/Edge 131+, Safari 18.2+ — not yet supported
+   in Firefox, which will simply omit them). This is the only reliable way
+   to get an auto-updating "Page X of Y" in a browser print without a JS
+   pagination library, and — unlike position:fixed — margin boxes are
+   designed to repeat once per printed page, so this can't reintroduce the
+   duplicate-page bug fixed above. The @bottom-left content itself (company
+   name / VAT / company number) is injected dynamically at runtime — see
+   updatePrintFooterStyle() in app.js — since it depends on saved settings.
+   These two @page rules cascade together with that injected one. */
+@page {
+  margin: 15mm 15mm 20mm 15mm;
+}
+@page {
+  @bottom-center {
+    content: "Page " counter(page) " of " counter(pages);
+    font-size: 8.5px;
+    color: #888888;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @bottom-left {
+    font-size: 8.5px;
+    color: #888888;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
 }
 
 .two-col { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; align-items: start; }

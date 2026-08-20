@@ -141,9 +141,11 @@
     $("saveSettingsBtn").hidden = state.me.role !== "admin";
     $("sCompanyName").disabled = $("sCompanyAddress").disabled = $("sCompanyEmail").disabled =
       $("sCompanyPhone").disabled = $("sCurrency").disabled = $("sDefaultTax").disabled =
-      $("sPrefix").disabled = $("sDefaultNotes").disabled = state.me.role !== "admin";
+      $("sPrefix").disabled = $("sDefaultNotes").disabled = $("sVatNumber").disabled =
+      $("sCompanyNumber").disabled = $("sLogoUploadBtn").disabled = $("sLogoRemoveBtn").disabled = state.me.role !== "admin";
 
     loadSettingsForm();
+    updatePrintFooterStyle();
     populateCustomerSelect();
     renderCatalogQuickAdd();
     renderProducts();
@@ -172,6 +174,7 @@
       // this view was still hidden (display:none gives scrollHeight 0), e.g.
       // when editing/duplicating a quote — re-measure now that it's visible.
       document.querySelectorAll("#qItemsBody .it-desc").forEach(autoGrow);
+      autoGrow($("qSummary"));
     }
     state.skipNextAutoReset = false;
   }
@@ -422,6 +425,81 @@
     $("sDefaultTax").value = state.settings.defaultTax;
     $("sPrefix").value = state.settings.prefix;
     $("sDefaultNotes").value = state.settings.defaultNotes || "";
+    $("sVatNumber").value = state.settings.vatNumber || "";
+    $("sCompanyNumber").value = state.settings.companyNumber || "";
+    renderLogoPreview();
+  }
+
+  function renderLogoPreview() {
+    const logo = state.settings.logo || "";
+    $("sLogoPreview").src = logo || "";
+    $("sLogoPreview").style.display = logo ? "" : "none";
+    $("sLogoEmpty").style.display = logo ? "none" : "";
+    $("sLogoRemoveBtn").hidden = !logo || state.me.role !== "admin";
+  }
+
+  $("sLogoUploadBtn").addEventListener("click", () => $("sLogoFile").click());
+  $("sLogoRemoveBtn").addEventListener("click", () => {
+    state.settings.logo = "";
+    renderLogoPreview();
+  });
+  $("sLogoFile").addEventListener("change", async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      state.settings.logo = await fileToScaledDataUrl(file, 320, 160);
+      renderLogoPreview();
+    } catch (err) {
+      alert("Couldn't read that image — please try a different file.");
+    }
+  });
+
+  // Reads an image file and scales it down (preserving aspect ratio) so
+  // logos are stored as a reasonably small base64 data URI in the database
+  // rather than an arbitrarily large original upload.
+  function fileToScaledDataUrl(file, maxW, maxH) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error);
+      reader.onload = () => {
+        if (file.type === "image/svg+xml") { resolve(reader.result); return; }
+        const img = new Image();
+        img.onerror = () => reject(new Error("invalid_image"));
+        img.onload = () => {
+          const scale = Math.min(1, maxW / img.width, maxH / img.height);
+          const w = Math.round(img.width * scale) || 1;
+          const h = Math.round(img.height * scale) || 1;
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL("image/png"));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // The VAT / company number footer and the page-number counter are printed
+  // via CSS @page margin boxes (Chrome 131+, Edge, Safari 18.2+ — not yet
+  // supported in Firefox) so they repeat correctly on every printed page
+  // without the position:fixed tricks that caused duplicate-page bugs before.
+  function updatePrintFooterStyle() {
+    const parts = [];
+    if (state.settings.vatNumber) parts.push(`VAT ${state.settings.vatNumber}`);
+    if (state.settings.companyNumber) parts.push(`Company No. ${state.settings.companyNumber}`);
+    const text = [state.settings.companyName, ...parts].filter(Boolean).join("  ·  ");
+    const escaped = text.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    let styleEl = document.getElementById("printFooterStyle");
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = "printFooterStyle";
+      document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = `
+      @page { @bottom-left { content: "${escaped}"; } }
+    `;
   }
 
   $("saveSettingsBtn").addEventListener("click", async () => {
@@ -434,10 +512,15 @@
       defaultTax: parseFloat($("sDefaultTax").value) || 0,
       prefix: $("sPrefix").value.trim() || "Q-",
       defaultNotes: $("sDefaultNotes").value,
+      vatNumber: $("sVatNumber").value.trim(),
+      companyNumber: $("sCompanyNumber").value.trim(),
+      logo: state.settings.logo || "",
     };
     state.settings = await api("PUT", "/settings", payload);
     $("brandName").textContent = state.settings.companyName;
     $("brandMark").textContent = initials(state.settings.companyName);
+    renderLogoPreview();
+    updatePrintFooterStyle();
     renderDashboard();
     alert("Settings saved.");
   });
@@ -491,6 +574,8 @@
     $("qDiscount").value = 0;
     $("qTax").value = state.settings ? state.settings.defaultTax : 20;
     $("qNotes").value = state.settings ? (state.settings.defaultNotes || "") : "";
+    $("qSummary").value = "";
+    autoGrow($("qSummary"));
     $("qStatus").value = "draft";
     $("qCustomer").value = "";
     $("quoteFormError").textContent = "";
@@ -509,6 +594,8 @@
     $("qDiscount").value = q.discount || 0;
     $("qTax").value = q.tax != null ? q.tax : (state.settings ? state.settings.defaultTax : 20);
     $("qNotes").value = q.notes || "";
+    $("qSummary").value = q.summary || "";
+    autoGrow($("qSummary"));
     $("qStatus").value = q.status || "draft";
     $("quoteFormError").textContent = "";
     populateCustomerSelect();
@@ -535,6 +622,8 @@
     $("qDiscount").value = q.discount || 0;
     $("qTax").value = q.tax != null ? q.tax : (state.settings ? state.settings.defaultTax : 20);
     $("qNotes").value = q.notes || "";
+    $("qSummary").value = q.summary || "";
+    autoGrow($("qSummary"));
     $("qStatus").value = "draft"; // a copy always starts fresh, regardless of the original's status
     $("quoteFormError").textContent = "";
     populateCustomerSelect();
@@ -599,6 +688,7 @@
   }
   $("qDiscount").addEventListener("input", updateQuoteTotals);
   $("qTax").addEventListener("input", updateQuoteTotals);
+  $("qSummary").addEventListener("input", (e) => autoGrow(e.target));
   $("addItemBtn").addEventListener("click", () => addQuoteItem());
 
   function renderCatalogQuickAdd() {
@@ -634,6 +724,7 @@
       discount: parseFloat($("qDiscount").value) || 0,
       tax: parseFloat($("qTax").value) || 0,
       notes: $("qNotes").value,
+      summary: $("qSummary").value,
       status: $("qStatus").value,
     };
 
@@ -667,6 +758,7 @@
       discount: parseFloat($("qDiscount").value) || 0,
       tax: parseFloat($("qTax").value) || 0,
       notes: $("qNotes").value,
+      summary: $("qSummary").value,
       status: $("qStatus").value,
     };
     openPreview(draft);
@@ -685,6 +777,7 @@
     sheet.innerHTML = `
       <div class="p-head">
         <div>
+          ${state.settings.logo ? `<img class="p-logo" src="${state.settings.logo}" alt="${escapeHtml(state.settings.companyName)} logo">` : ""}
           <div class="p-brand">${escapeHtml(state.settings.companyName)}</div>
           <div class="p-brand-sub">${escapeHtml(state.settings.companyAddress || "")}${state.settings.companyEmail ? "\n" + state.settings.companyEmail : ""}${state.settings.companyPhone ? "\n" + state.settings.companyPhone : ""}</div>
         </div>
@@ -702,6 +795,7 @@
           ${cust && cust.address ? `<div>${escapeHtml(cust.address)}</div>` : ""}
         </div>
       </div>
+      ${q.summary ? `<div class="p-summary">${escapeHtml(q.summary)}</div>` : ""}
       <table>
         <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Total</th></tr></thead>
         <tbody>

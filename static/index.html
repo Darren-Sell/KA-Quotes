@@ -104,6 +104,11 @@
             </div>
           </div>
 
+          <div class="field">
+            <label>Description</label>
+            <textarea id="qSummary" rows="1" placeholder="Overview of the work covered by this quote — shown above the line items."></textarea>
+          </div>
+
           <table class="items-table">
             <thead>
               <tr><th style="width:38%">Part number / Description</th><th class="num" style="width:12%">Qty</th><th class="num" style="width:15%">Unit price</th><th class="num" style="width:15%">Line total</th><th></th></tr>
@@ -240,11 +245,28 @@
   <section class="view" id="view-settings">
     <div class="card" style="max-width:520px;">
       <h2>Company details</h2>
+      <div class="field">
+        <label>Company logo</label>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <img id="sLogoPreview" alt="Logo preview" style="max-width:140px; max-height:64px; display:none; border-radius:6px; border:1px solid var(--border); background:#fff; padding:4px;">
+          <span id="sLogoEmpty" class="hint" style="margin:0;">No logo uploaded</span>
+        </div>
+        <input type="file" id="sLogoFile" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden>
+        <div class="toolbar" style="margin-top:8px;">
+          <button type="button" class="ghost" id="sLogoUploadBtn">Upload logo</button>
+          <button type="button" class="ghost danger" id="sLogoRemoveBtn" hidden>Remove logo</button>
+        </div>
+        <p class="hint">Shown at the top of every printed quote. PNG or SVG with a transparent background works best.</p>
+      </div>
       <div class="field"><label>Company name</label><input type="text" id="sCompanyName"></div>
       <div class="field"><label>Address (shown on quotes)</label><textarea id="sCompanyAddress"></textarea></div>
       <div class="field"><label>Email</label><input type="text" id="sCompanyEmail"></div>
       <div class="field"><label>Phone</label><input type="text" id="sCompanyPhone"></div>
       <div class="grid-2">
+        <div class="field"><label>VAT number</label><input type="text" id="sVatNumber" placeholder="e.g. GB123456789"></div>
+        <div class="field"><label>Company number</label><input type="text" id="sCompanyNumber" placeholder="e.g. 01234567"></div>
+      </div>
+      <div class="grid-3">
         <div class="field"><label>Currency symbol</label><input type="text" id="sCurrency" maxlength="3"></div>
         <div class="field"><label>Default tax / VAT (%)</label><input type="number" id="sDefaultTax" min="0" max="100" step="0.5"></div>
         <div class="field"><label>Quote number prefix</label><input type="text" id="sPrefix"></div>
@@ -254,6 +276,7 @@
         <textarea id="sDefaultNotes" placeholder="e.g. Payment due within 30 days. Prices exclude delivery."></textarea>
         <p class="hint">Pre-fills the Notes field on every new quote — still fully editable per quote, this is just the starting text.</p>
       </div>
+      <p class="hint">The VAT and company number are printed in the footer of every quote page, alongside the page number.</p>
       <button class="primary" id="saveSettingsBtn">Save settings</button>
       <p class="hint" id="settingsAdminHint" style="margin-top:14px;"></p>
     </div>

@@ -18,6 +18,9 @@ def settings_row_to_dict(row):
         "prefix": row["prefix"],
         "nextNum": row["next_num"],
         "defaultNotes": row["default_notes"],
+        "vatNumber": row["vat_number"],
+        "companyNumber": row["company_number"],
+        "logo": row["logo_data"],
     }
 
 
@@ -36,7 +39,8 @@ def update_settings():
     db = get_db()
     db.execute(
         """UPDATE settings SET company_name=?, company_address=?, company_email=?, company_phone=?,
-           currency=?, default_tax=?, prefix=?, default_notes=? WHERE id = 1""",
+           currency=?, default_tax=?, prefix=?, default_notes=?, vat_number=?, company_number=?, logo_data=?
+           WHERE id = 1""",
         (
             (data.get("companyName") or "Your company").strip(),
             data.get("companyAddress") or "",
@@ -46,6 +50,9 @@ def update_settings():
             float(data.get("defaultTax") or 0),
             data.get("prefix") or "Q-",
             data.get("defaultNotes") or "",
+            data.get("vatNumber") or "",
+            data.get("companyNumber") or "",
+            data.get("logo") or "",
         ),
     )
     db.commit()

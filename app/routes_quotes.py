@@ -20,6 +20,7 @@ def quote_row_to_dict(db, row):
         "discount": row["discount"],
         "tax": row["tax"],
         "notes": row["notes"],
+        "summary": row["summary"],
         "status": row["status"],
         "createdBy": row["created_by"],
         "updatedBy": row["updated_by"],
@@ -77,11 +78,11 @@ def create_quote():
     db.execute("UPDATE settings SET next_num = next_num + 1 WHERE id = 1")
 
     db.execute(
-        """INSERT INTO quotes (id, number, customer_id, date, valid_until, discount, tax, notes, status,
-           created_by, updated_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        """INSERT INTO quotes (id, number, customer_id, date, valid_until, discount, tax, notes, summary, status,
+           created_by, updated_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (qid, number, data.get("customerId"), data.get("date") or "", data.get("validUntil") or "",
          float(data.get("discount") or 0), float(data.get("tax") or 0), data.get("notes") or "",
-         status, user["id"], user["id"], ts, ts),
+         data.get("summary") or "", status, user["id"], user["id"], ts, ts),
     )
     _save_items(db, qid, data.get("items"))
     db.commit()
@@ -101,7 +102,7 @@ def update_quote(qid):
 
     status = data.get("status") if data.get("status") in VALID_STATUSES else row["status"]
     db.execute(
-        """UPDATE quotes SET number=?, customer_id=?, date=?, valid_until=?, discount=?, tax=?, notes=?,
+        """UPDATE quotes SET number=?, customer_id=?, date=?, valid_until=?, discount=?, tax=?, notes=?, summary=?,
            status=?, updated_by=?, updated_at=? WHERE id=?""",
         (
             data.get("number", row["number"]),
@@ -111,6 +112,7 @@ def update_quote(qid):
             float(data.get("discount", row["discount"]) or 0),
             float(data.get("tax", row["tax"]) or 0),
             data.get("notes", row["notes"]),
+            data.get("summary", row["summary"]),
             status,
             user["id"],
             now(),
