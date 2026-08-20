@@ -135,7 +135,9 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); opacity: 1
 
 .items-table input, .items-table select { width: 100%; }
 .items-table td { vertical-align: top; padding-top: 10px; }
+.items-table input.it-partnum { font-weight: 700; margin-bottom: 6px; }
 .items-table textarea.it-desc { width: 100%; resize: none; overflow: hidden; min-height: 34px; line-height: 1.4; font-family: inherit; }
+.pn-cell { font-weight: 700; }
 .totals-box { margin-left: auto; width: 300px; }
 .totals-box .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
 .totals-box .row.grand { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 10px; font-size: 16px; font-weight: 700; }

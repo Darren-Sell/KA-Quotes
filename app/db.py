@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS quotes (
 CREATE TABLE IF NOT EXISTS quote_items (
     id TEXT PRIMARY KEY,
     quote_id TEXT NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+    part_number TEXT NOT NULL DEFAULT '',
     description TEXT NOT NULL DEFAULT '',
     qty REAL NOT NULL DEFAULT 1,
     unit_price REAL NOT NULL DEFAULT 0,
@@ -116,6 +117,7 @@ CREATE INDEX IF NOT EXISTS idx_quotes_customer_id ON quotes(customer_id);
 # each column is only added if missing.
 MIGRATIONS = [
     ("settings", "default_notes", "TEXT NOT NULL DEFAULT ''"),
+    ("quote_items", "part_number", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 

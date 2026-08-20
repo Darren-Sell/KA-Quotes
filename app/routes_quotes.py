@@ -25,7 +25,7 @@ def quote_row_to_dict(db, row):
         "updatedBy": row["updated_by"],
         "updatedAt": row["updated_at"],
         "items": [
-            {"id": it["id"], "description": it["description"], "qty": it["qty"], "unitPrice": it["unit_price"]}
+            {"id": it["id"], "partNumber": it["part_number"], "description": it["description"], "qty": it["qty"], "unitPrice": it["unit_price"]}
             for it in items
         ],
     }
@@ -51,8 +51,8 @@ def _save_items(db, quote_id, items):
     db.execute("DELETE FROM quote_items WHERE quote_id = ?", (quote_id,))
     for i, it in enumerate(items or []):
         db.execute(
-            "INSERT INTO quote_items (id, quote_id, description, qty, unit_price, sort_order) VALUES (?,?,?,?,?,?)",
-            (new_id(), quote_id, (it.get("description") or ""), float(it.get("qty") or 0),
+            "INSERT INTO quote_items (id, quote_id, part_number, description, qty, unit_price, sort_order) VALUES (?,?,?,?,?,?,?)",
+            (new_id(), quote_id, (it.get("partNumber") or ""), (it.get("description") or ""), float(it.get("qty") or 0),
              float(it.get("unitPrice") or 0), i),
         )
 

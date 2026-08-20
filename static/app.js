@@ -167,6 +167,12 @@
     if (name === "customers") renderCustomers();
     if (name === "users") renderUsers();
     if (name === "newquote" && !state.editingQuoteId && !state.skipNextAutoReset) resetQuoteForm();
+    if (name === "newquote") {
+      // The description textareas may have been measured for auto-grow while
+      // this view was still hidden (display:none gives scrollHeight 0), e.g.
+      // when editing/duplicating a quote — re-measure now that it's visible.
+      document.querySelectorAll("#qItemsBody .it-desc").forEach(autoGrow);
+    }
     state.skipNextAutoReset = false;
   }
   document.querySelectorAll("nav.tabs button[data-view]").forEach(b => {
@@ -291,8 +297,8 @@
     const body = $("productsBody");
     body.innerHTML = state.products.length ? state.products.map(p => `
       <tr data-id="${p.id}">
+        <td class="pn-cell">${escapeHtml(p.sku || "")}</td>
         <td>${escapeHtml(p.name)}</td>
-        <td>${escapeHtml(p.sku || "")}</td>
         <td class="num">${fmt(p.price)}</td>
         <td class="row-actions"><button class="ghost icon-btn danger del-product" title="Delete">🗑</button></td>
       </tr>`).join("") : emptyRow(4, "No products yet — add your parts and services above.");
@@ -310,7 +316,7 @@
     const name = $("pName").value.trim();
     const sku = $("pSku").value.trim();
     const price = parseFloat($("pPrice").value) || 0;
-    if (!name) { alert("Enter a product name."); return; }
+    if (!name) { alert("Enter a description."); return; }
     const product = await api("POST", "/products", { name, sku, price });
     state.products.push(product);
     state.products.sort((a, b) => a.name.localeCompare(b.name));
@@ -535,7 +541,7 @@
   }
 
   function addQuoteItem(prefill) {
-    quoteItems.push(Object.assign({ id: "tmp" + Math.random().toString(36).slice(2), description: "", qty: 1, unitPrice: 0 }, prefill || {}));
+    quoteItems.push(Object.assign({ id: "tmp" + Math.random().toString(36).slice(2), partNumber: "", description: "", qty: 1, unitPrice: 0 }, prefill || {}));
     renderQuoteItems();
   }
 
@@ -545,7 +551,10 @@
     const body = $("qItemsBody");
     body.innerHTML = quoteItems.length ? quoteItems.map(it => `
       <tr data-id="${it.id}">
-        <td><textarea class="it-desc" rows="1" placeholder="Description — add specs, part notes, etc.">${escapeHtml(it.description)}</textarea></td>
+        <td>
+          <input type="text" class="it-partnum" placeholder="Part number" value="${escapeHtml(it.partNumber || "")}">
+          <textarea class="it-desc" rows="1" placeholder="Description — add specs, part notes, etc.">${escapeHtml(it.description)}</textarea>
+        </td>
         <td><input type="number" class="it-qty" min="0" step="1" value="${it.qty}"></td>
         <td><input type="number" class="it-price" min="0" step="0.01" value="${it.unitPrice}"></td>
         <td class="num it-total">${fmt(it.qty * it.unitPrice)}</td>
@@ -556,6 +565,10 @@
       const id = tr.dataset.id;
       const item = quoteItems.find(i => i.id === id);
       if (!item) return;
+      const partEl = tr.querySelector(".it-partnum");
+      if (partEl) {
+        partEl.addEventListener("input", (e) => { item.partNumber = e.target.value; });
+      }
       const descEl = tr.querySelector(".it-desc");
       if (descEl) {
         autoGrow(descEl);
@@ -585,12 +598,12 @@
     const wrap = $("catalogQuickAdd");
     wrap.innerHTML = state.products.length ? state.products.map(p => `
       <button class="ghost quick-add-btn" data-id="${p.id}" style="width:100%; justify-content:space-between; margin-bottom:6px;">
-        <span>${escapeHtml(p.name)}</span><span>${fmt(p.price)}</span>
+        <span>${p.sku ? `<strong>${escapeHtml(p.sku)}</strong> — ` : ""}${escapeHtml(p.name)}</span><span>${fmt(p.price)}</span>
       </button>`).join("") : `<p class="hint">Add products in the Products tab to quick-add them here.</p>`;
     wrap.querySelectorAll(".quick-add-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const p = state.products.find(p => p.id === btn.dataset.id);
-        if (p) addQuoteItem({ description: p.name, qty: 1, unitPrice: p.price });
+        if (p) addQuoteItem({ partNumber: p.sku || "", description: p.name, qty: 1, unitPrice: p.price });
       });
     });
   }
@@ -605,7 +618,7 @@
       customerId,
       date: $("qDate").value || todayISO(),
       validUntil: $("qValidUntil").value,
-      items: quoteItems.map(it => ({ description: it.description, qty: it.qty, unitPrice: it.unitPrice })),
+      items: quoteItems.map(it => ({ partNumber: it.partNumber || "", description: it.description, qty: it.qty, unitPrice: it.unitPrice })),
       discount: parseFloat($("qDiscount").value) || 0,
       tax: parseFloat($("qTax").value) || 0,
       notes: $("qNotes").value,
@@ -681,7 +694,7 @@
         <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Total</th></tr></thead>
         <tbody>
           ${(q.items || []).map(it => `
-            <tr><td class="desc-cell">${escapeHtml(it.description || "")}</td><td class="num">${it.qty}</td><td class="num">${fmt(it.unitPrice)}</td><td class="num">${fmt(it.qty * it.unitPrice)}</td></tr>
+            <tr><td class="desc-cell">${it.partNumber ? `<strong>${escapeHtml(it.partNumber)}</strong><br>` : ""}${escapeHtml(it.description || "")}</td><td class="num">${it.qty}</td><td class="num">${fmt(it.unitPrice)}</td><td class="num">${fmt(it.qty * it.unitPrice)}</td></tr>
           `).join("")}
         </tbody>
       </table>
