@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kelston Actuation — Quote Builder</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body class="viz-root">
+
+<!-- SETUP (first run) -->
+<div class="auth-wrap" id="setupScreen" hidden>
+  <div class="auth-card">
+    <div class="brand"><div class="brand-mark">KA</div></div>
+    <h2>Set up your quote workspace</h2>
+    <p class="sub-line">Create the first admin account. You can add teammates afterwards.</p>
+    <div class="field"><label>Your name</label><input type="text" id="setupName" autocomplete="name"></div>
+    <div class="field"><label>Email</label><input type="email" id="setupEmail" autocomplete="email"></div>
+    <div class="field"><label>Password (min 8 characters)</label><input type="password" id="setupPassword" autocomplete="new-password"></div>
+    <div class="error-text" id="setupError"></div>
+    <button class="primary block" id="setupSubmit">Create admin account</button>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div class="auth-wrap" id="loginScreen" hidden>
+  <div class="auth-card">
+    <div class="brand"><div class="brand-mark">KA</div></div>
+    <h2>Kelston Actuation</h2>
+    <p class="sub-line">Sign in to the quote builder</p>
+    <div class="field"><label>Email</label><input type="email" id="loginEmail" autocomplete="email"></div>
+    <div class="field"><label>Password</label><input type="password" id="loginPassword" autocomplete="current-password"></div>
+    <div class="error-text" id="loginError"></div>
+    <button class="primary block" id="loginSubmit">Sign in</button>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div class="app" id="appShell" hidden>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" id="brandMark">KA</div>
+      <div>
+        <h1 id="brandName">Kelston Actuation</h1>
+        <div class="sub">Quote Builder</div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <div class="user-chip"><b id="currentUserName"></b><span id="currentUserRole"></span></div>
+      <button class="ghost icon-btn" id="themeToggleBtn" title="Toggle dark mode">🌙</button>
+      <button id="exportBtn" title="Download a JSON backup of all data" hidden>⬇ Export backup</button>
+      <button class="ghost" id="logoutBtn">Log out</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button data-view="dashboard" class="active">Dashboard</button>
+    <button data-view="newquote">New Quote</button>
+    <button data-view="quotes">Quotes</button>
+    <button data-view="products">Products</button>
+    <button data-view="customers">Customers</button>
+    <button data-view="users" id="usersTabBtn" hidden>Team</button>
+    <button data-view="settings">Settings</button>
+  </nav>
+
+  <!-- DASHBOARD -->
+  <section class="view active" id="view-dashboard">
+    <div class="stat-row" id="statRow"></div>
+    <div class="card">
+      <div class="card-head">
+        <h2>Recent quotes</h2>
+        <button class="primary" data-goto="newquote">+ New quote</button>
+      </div>
+      <table>
+        <thead><tr><th>Quote #</th><th>Customer</th><th>Date</th><th>Status</th><th class="num">Total</th><th></th></tr></thead>
+        <tbody id="recentQuotesBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- NEW / EDIT QUOTE -->
+  <section class="view" id="view-newquote">
+    <div class="two-col">
+      <div>
+        <div class="card">
+          <h2 id="quoteFormHeading">New quote</h2>
+          <div class="grid-2">
+            <div class="field">
+              <label>Customer</label>
+              <select id="qCustomer"></select>
+            </div>
+            <div class="field">
+              <label>Quote number</label>
+              <input type="text" id="qNumber">
+            </div>
+            <div class="field">
+              <label>Date</label>
+              <input type="date" id="qDate">
+            </div>
+            <div class="field">
+              <label>Valid until</label>
+              <input type="date" id="qValidUntil">
+            </div>
+          </div>
+
+          <table class="items-table">
+            <thead>
+              <tr><th style="width:34%">Item</th><th class="num" style="width:12%">Qty</th><th class="num" style="width:16%">Unit price</th><th class="num" style="width:16%">Line total</th><th></th></tr>
+            </thead>
+            <tbody id="qItemsBody"></tbody>
+          </table>
+          <button class="ghost" id="addItemBtn">+ Add line item</button>
+
+          <div style="margin-top:18px; display:flex; justify-content:flex-end;">
+            <div class="totals-box">
+              <div class="row"><span>Subtotal</span><span id="qSubtotal">£0.00</span></div>
+              <div class="row">
+                <span>Discount (%)</span>
+                <input type="number" id="qDiscount" min="0" max="100" step="0.5" style="width:70px; text-align:right;" value="0">
+              </div>
+              <div class="row">
+                <span>Tax / VAT (%)</span>
+                <input type="number" id="qTax" min="0" max="100" step="0.5" style="width:70px; text-align:right;" value="20">
+              </div>
+              <div class="row grand"><span>Total</span><span id="qGrandTotal">£0.00</span></div>
+            </div>
+          </div>
+
+          <div class="field" style="margin-top:14px;">
+            <label>Notes / terms (shown on the quote)</label>
+            <textarea id="qNotes" placeholder="Payment terms, delivery, warranty..."></textarea>
+          </div>
+
+          <div class="field">
+            <label>Status</label>
+            <select id="qStatus">
+              <option value="draft">Draft</option>
+              <option value="sent">Sent</option>
+              <option value="accepted">Accepted</option>
+              <option value="rejected">Rejected</option>
+              <option value="expired">Expired</option>
+            </select>
+          </div>
+
+          <div class="error-text" id="quoteFormError"></div>
+          <div class="toolbar" style="margin-top:10px;">
+            <button class="primary" id="saveQuoteBtn">Save quote</button>
+            <button id="previewQuoteBtn">Preview / Print</button>
+            <button class="ghost" id="clearQuoteBtn">Clear form</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h2>Quick-add from catalog</h2>
+          <p class="hint">Click a product to add it as a line item.</p>
+          <div id="catalogQuickAdd"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- QUOTES LIST -->
+  <section class="view" id="view-quotes">
+    <div class="card">
+      <div class="card-head">
+        <h2>All quotes</h2>
+        <button class="primary" data-goto="newquote">+ New quote</button>
+      </div>
+      <table>
+        <thead><tr><th>Quote #</th><th>Customer</th><th>Date</th><th>Valid until</th><th>Status</th><th class="num">Total</th><th></th></tr></thead>
+        <tbody id="allQuotesBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- PRODUCTS -->
+  <section class="view" id="view-products">
+    <div class="card">
+      <div class="card-head"><h2>Product / part catalog</h2></div>
+      <div class="grid-3">
+        <div class="field"><label>Name</label><input type="text" id="pName" placeholder="e.g. Linear actuator LA-200"></div>
+        <div class="field"><label>SKU</label><input type="text" id="pSku" placeholder="e.g. LA-200"></div>
+        <div class="field"><label>Unit price</label><input type="number" id="pPrice" min="0" step="0.01"></div>
+      </div>
+      <button class="primary" id="addProductBtn">+ Add product</button>
+      <table style="margin-top:16px;">
+        <thead><tr><th>Name</th><th>SKU</th><th class="num">Unit price</th><th></th></tr></thead>
+        <tbody id="productsBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- CUSTOMERS -->
+  <section class="view" id="view-customers">
+    <div class="card">
+      <div class="card-head"><h2>Customers</h2></div>
+      <div class="grid-2">
+        <div class="field"><label>Company name</label><input type="text" id="cCompany"></div>
+        <div class="field"><label>Contact name</label><input type="text" id="cContact"></div>
+        <div class="field"><label>Email</label><input type="email" id="cEmail"></div>
+        <div class="field"><label>Phone</label><input type="text" id="cPhone"></div>
+        <div class="field" style="grid-column: 1 / -1;"><label>Address</label><textarea id="cAddress"></textarea></div>
+      </div>
+      <button class="primary" id="addCustomerBtn">+ Add customer</button>
+      <table style="margin-top:16px;">
+        <thead><tr><th>Company</th><th>Contact</th><th>Email</th><th></th></tr></thead>
+        <tbody id="customersBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- TEAM (admin only) -->
+  <section class="view" id="view-users">
+    <div class="card">
+      <div class="card-head"><h2>Team members</h2></div>
+      <div class="grid-3">
+        <div class="field"><label>Name</label><input type="text" id="uName"></div>
+        <div class="field"><label>Email</label><input type="email" id="uEmail"></div>
+        <div class="field"><label>Temporary password</label><input type="password" id="uPassword" placeholder="min 8 characters"></div>
+      </div>
+      <div class="field" style="max-width:200px;">
+        <label>Role</label>
+        <select id="uRole"><option value="member">Member</option><option value="admin">Admin</option></select>
+      </div>
+      <div class="error-text" id="userFormError"></div>
+      <button class="primary" id="addUserBtn">+ Add team member</button>
+      <table style="margin-top:16px;">
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr></thead>
+        <tbody id="usersBody"></tbody>
+      </table>
+      <p class="hint">Share the email + temporary password with them directly — there's no invite email, so pass it along yourself (Slack, in person, etc.). They can change their password after logging in from the Settings tab.</p>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="view" id="view-settings">
+    <div class="card" style="max-width:520px;">
+      <h2>Company details</h2>
+      <div class="field"><label>Company name</label><input type="text" id="sCompanyName"></div>
+      <div class="field"><label>Address (shown on quotes)</label><textarea id="sCompanyAddress"></textarea></div>
+      <div class="field"><label>Email</label><input type="text" id="sCompanyEmail"></div>
+      <div class="field"><label>Phone</label><input type="text" id="sCompanyPhone"></div>
+      <div class="grid-2">
+        <div class="field"><label>Currency symbol</label><input type="text" id="sCurrency" maxlength="3"></div>
+        <div class="field"><label>Default tax / VAT (%)</label><input type="number" id="sDefaultTax" min="0" max="100" step="0.5"></div>
+        <div class="field"><label>Quote number prefix</label><input type="text" id="sPrefix"></div>
+      </div>
+      <button class="primary" id="saveSettingsBtn">Save settings</button>
+      <p class="hint" id="settingsAdminHint" style="margin-top:14px;"></p>
+    </div>
+
+    <div class="card" style="max-width:520px;">
+      <h2>Your password</h2>
+      <div class="field"><label>Current password</label><input type="password" id="pwCurrent"></div>
+      <div class="field"><label>New password (min 8 characters)</label><input type="password" id="pwNew"></div>
+      <div class="error-text" id="pwError"></div>
+      <button id="changePasswordBtn">Update password</button>
+    </div>
+  </section>
+
+</div>
+
+<!-- Quote preview / print modal -->
+<div class="preview-modal-backdrop" id="previewBackdrop">
+  <div style="width:100%; max-width:780px;">
+    <div class="preview-actions">
+      <button id="printPreviewBtn">🖨 Print / Save as PDF</button>
+      <button id="closePreviewBtn">Close</button>
+    </div>
+    <div class="preview-sheet" id="previewSheet"></div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
