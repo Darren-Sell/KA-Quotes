@@ -298,7 +298,7 @@
     body.innerHTML = state.products.length ? state.products.map(p => `
       <tr data-id="${p.id}">
         <td class="pn-cell">${escapeHtml(p.sku || "")}</td>
-        <td>${escapeHtml(p.name)}</td>
+        <td class="desc-cell">${escapeHtml(p.name)}</td>
         <td class="num">${fmt(p.price)}</td>
         <td class="row-actions"><button class="ghost icon-btn danger del-product" title="Delete">🗑</button></td>
       </tr>`).join("") : emptyRow(4, "No products yet — add your parts and services above.");
@@ -321,8 +321,11 @@
     state.products.push(product);
     state.products.sort((a, b) => a.name.localeCompare(b.name));
     $("pName").value = ""; $("pSku").value = ""; $("pPrice").value = "";
+    autoGrow($("pName"));
     renderProducts(); renderCatalogQuickAdd();
   });
+  $("pName").addEventListener("input", (e) => autoGrow(e.target));
+  autoGrow($("pName"));
 
   /* ---------- Customers ---------- */
   function renderCustomers() {
@@ -545,7 +548,11 @@
     renderQuoteItems();
   }
 
-  function autoGrow(el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; }
+  function autoGrow(el) {
+    if (!el.value) { el.style.height = ""; return; } // let CSS min-height govern; scrollHeight would include wrapped placeholder text
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }
 
   function renderQuoteItems() {
     const body = $("qItemsBody");
@@ -596,10 +603,15 @@
 
   function renderCatalogQuickAdd() {
     const wrap = $("catalogQuickAdd");
-    wrap.innerHTML = state.products.length ? state.products.map(p => `
+    wrap.innerHTML = state.products.length ? state.products.map(p => {
+      const lines = (p.name || "").split("\n");
+      const firstLine = lines[0] || "";
+      const more = lines.length > 1 ? " …" : "";
+      return `
       <button class="ghost quick-add-btn" data-id="${p.id}" style="width:100%; justify-content:space-between; margin-bottom:6px;">
-        <span>${p.sku ? `<strong>${escapeHtml(p.sku)}</strong> — ` : ""}${escapeHtml(p.name)}</span><span>${fmt(p.price)}</span>
-      </button>`).join("") : `<p class="hint">Add products in the Products tab to quick-add them here.</p>`;
+        <span>${p.sku ? `<strong>${escapeHtml(p.sku)}</strong> — ` : ""}${escapeHtml(firstLine)}${more}</span><span>${fmt(p.price)}</span>
+      </button>`;
+    }).join("") : `<p class="hint">Add products in the Products tab to quick-add them here.</p>`;
     wrap.querySelectorAll(".quick-add-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const p = state.products.find(p => p.id === btn.dataset.id);
