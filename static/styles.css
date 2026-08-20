@@ -100,6 +100,11 @@ nav.tabs button:hover:not(.active) { color: var(--text-primary); }
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 8px 10px; font-size: 13px; border-bottom: 1px solid var(--gridline); }
 th { color: var(--text-muted); font-weight: 500; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.03em; }
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { color: var(--text-primary); }
+th.sortable::after { content: ""; display: inline-block; width: 8px; margin-left: 3px; font-size: 9px; }
+th.sortable.sort-asc::after { content: "▲"; }
+th.sortable.sort-desc::after { content: "▼"; }
 tbody tr:hover { background: var(--surface-2); }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .empty-row td { color: var(--text-muted); text-align: center; padding: 28px 10px; }

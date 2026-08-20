@@ -174,10 +174,34 @@
         <h2>All quotes</h2>
         <button class="primary" data-goto="newquote">+ New quote</button>
       </div>
+      <div class="toolbar" style="align-items:flex-end; margin-bottom:16px;">
+        <div class="field" style="margin-bottom:0; min-width:220px; flex:1;">
+          <label>Search</label>
+          <input type="text" id="qSearchInput" placeholder="Quote #, customer, description...">
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>From date</label>
+          <input type="date" id="qFilterDateFrom">
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>To date</label>
+          <input type="date" id="qFilterDateTo">
+        </div>
+        <button class="ghost" id="qFilterClearBtn">Clear filters</button>
+      </div>
       <table>
-        <thead><tr><th>Quote #</th><th>Customer</th><th>Date</th><th>Valid until</th><th>Status</th><th class="num">Total</th><th></th></tr></thead>
+        <thead><tr>
+          <th class="sortable" data-sort="number">Quote #</th>
+          <th class="sortable" data-sort="customer">Customer</th>
+          <th class="sortable" data-sort="date">Date</th>
+          <th class="sortable" data-sort="validUntil">Valid until</th>
+          <th class="sortable" data-sort="status">Status</th>
+          <th class="num sortable" data-sort="total">Total</th>
+          <th></th>
+        </tr></thead>
         <tbody id="allQuotesBody"></tbody>
       </table>
+      <p class="hint" id="qFilterSummary"></p>
     </div>
   </section>
 

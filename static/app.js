@@ -30,6 +30,7 @@
     users: [],
     editingQuoteId: null,
     skipNextAutoReset: false,
+    quotesSort: { key: "date", dir: "desc" },
   };
 
   const fmt = (n) => (state.settings ? state.settings.currency : "£") + (Number(n) || 0).toFixed(2);
@@ -223,10 +224,85 @@
 
   function renderQuotesList() {
     const body = $("allQuotesBody");
-    const rows = [...state.quotes].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-    body.innerHTML = rows.length ? rows.map(q => rowHtml(q, true)).join("") : emptyRow(7, "No quotes yet.");
+    let rows = state.quotes.slice();
+
+    const search = $("qSearchInput").value.trim().toLowerCase();
+    if (search) {
+      rows = rows.filter(q => {
+        const cust = customerName(q.customerId).toLowerCase();
+        return (q.number || "").toLowerCase().includes(search)
+          || cust.includes(search)
+          || (q.summary || "").toLowerCase().includes(search)
+          || (q.notes || "").toLowerCase().includes(search);
+      });
+    }
+    const dateFrom = $("qFilterDateFrom").value;
+    const dateTo = $("qFilterDateTo").value;
+    if (dateFrom) rows = rows.filter(q => (q.date || "") >= dateFrom);
+    if (dateTo) rows = rows.filter(q => (q.date || "") <= dateTo);
+
+    rows = sortQuotes(rows);
+
+    const filtered = Boolean(search || dateFrom || dateTo);
+    body.innerHTML = rows.length
+      ? rows.map(q => rowHtml(q, true)).join("")
+      : emptyRow(7, state.quotes.length ? "No quotes match your search or date filter." : "No quotes yet.");
     wireRowButtons(body);
+    updateSortHeaders();
+    $("qFilterSummary").textContent = filtered ? `Showing ${rows.length} of ${state.quotes.length} quotes.` : "";
   }
+
+  function sortQuotes(rows) {
+    const { key, dir } = state.quotesSort;
+    const mul = dir === "asc" ? 1 : -1;
+    const sortValue = (q) => {
+      switch (key) {
+        case "number": return (q.number || "").toLowerCase();
+        case "customer": return customerName(q.customerId).toLowerCase();
+        case "validUntil": return q.validUntil || "";
+        case "status": return q.status || "";
+        case "total": return quoteTotal(q);
+        case "date": default: return q.date || "";
+      }
+    };
+    return rows.sort((a, b) => {
+      const va = sortValue(a), vb = sortValue(b);
+      if (va < vb) return -1 * mul;
+      if (va > vb) return 1 * mul;
+      return 0;
+    });
+  }
+
+  function updateSortHeaders() {
+    document.querySelectorAll("#view-quotes th.sortable").forEach(th => {
+      th.classList.remove("sort-asc", "sort-desc");
+      if (th.dataset.sort === state.quotesSort.key) {
+        th.classList.add(state.quotesSort.dir === "asc" ? "sort-asc" : "sort-desc");
+      }
+    });
+  }
+
+  document.querySelectorAll("#view-quotes th.sortable").forEach(th => {
+    th.addEventListener("click", () => {
+      const key = th.dataset.sort;
+      if (state.quotesSort.key === key) {
+        state.quotesSort.dir = state.quotesSort.dir === "asc" ? "desc" : "asc";
+      } else {
+        state.quotesSort.key = key;
+        state.quotesSort.dir = (key === "date" || key === "total") ? "desc" : "asc";
+      }
+      renderQuotesList();
+    });
+  });
+  $("qSearchInput").addEventListener("input", renderQuotesList);
+  $("qFilterDateFrom").addEventListener("input", renderQuotesList);
+  $("qFilterDateTo").addEventListener("input", renderQuotesList);
+  $("qFilterClearBtn").addEventListener("click", () => {
+    $("qSearchInput").value = "";
+    $("qFilterDateFrom").value = "";
+    $("qFilterDateTo").value = "";
+    renderQuotesList();
+  });
 
   function rowHtml(q, withValidUntil) {
     const cust = customerName(q.customerId);
