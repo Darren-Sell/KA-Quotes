@@ -5,6 +5,7 @@ from .auth import login_required, get_current_user
 bp = Blueprint("quotes", __name__, url_prefix="/api")
 
 VALID_STATUSES = {"draft", "sent", "accepted", "rejected", "expired"}
+VALID_CURRENCIES = {"GBP", "USD", "EUR"}
 
 
 def quote_row_to_dict(db, row):
@@ -21,6 +22,7 @@ def quote_row_to_dict(db, row):
         "tax": row["tax"],
         "notes": row["notes"],
         "summary": row["summary"],
+        "currency": row["currency"],
         "status": row["status"],
         "createdBy": row["created_by"],
         "updatedBy": row["updated_by"],
@@ -66,6 +68,7 @@ def create_quote():
     db = get_db()
 
     status = data.get("status") if data.get("status") in VALID_STATUSES else "draft"
+    currency = data.get("currency") if data.get("currency") in VALID_CURRENCIES else "GBP"
     qid = new_id()
     ts = now()
 
@@ -78,11 +81,11 @@ def create_quote():
     db.execute("UPDATE settings SET next_num = next_num + 1 WHERE id = 1")
 
     db.execute(
-        """INSERT INTO quotes (id, number, customer_id, date, valid_until, discount, tax, notes, summary, status,
-           created_by, updated_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        """INSERT INTO quotes (id, number, customer_id, date, valid_until, discount, tax, notes, summary, currency,
+           status, created_by, updated_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (qid, number, data.get("customerId"), data.get("date") or "", data.get("validUntil") or "",
          float(data.get("discount") or 0), float(data.get("tax") or 0), data.get("notes") or "",
-         data.get("summary") or "", status, user["id"], user["id"], ts, ts),
+         data.get("summary") or "", currency, status, user["id"], user["id"], ts, ts),
     )
     _save_items(db, qid, data.get("items"))
     db.commit()
@@ -101,9 +104,10 @@ def update_quote(qid):
         return jsonify({"error": "not_found"}), 404
 
     status = data.get("status") if data.get("status") in VALID_STATUSES else row["status"]
+    currency = data.get("currency") if data.get("currency") in VALID_CURRENCIES else row["currency"]
     db.execute(
         """UPDATE quotes SET number=?, customer_id=?, date=?, valid_until=?, discount=?, tax=?, notes=?, summary=?,
-           status=?, updated_by=?, updated_at=? WHERE id=?""",
+           currency=?, status=?, updated_by=?, updated_at=? WHERE id=?""",
         (
             data.get("number", row["number"]),
             data.get("customerId", row["customer_id"]),
@@ -113,6 +117,7 @@ def update_quote(qid):
             float(data.get("tax", row["tax"]) or 0),
             data.get("notes", row["notes"]),
             data.get("summary", row["summary"]),
+            currency,
             status,
             user["id"],
             now(),

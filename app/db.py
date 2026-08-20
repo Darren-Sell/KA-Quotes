@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS quotes (
     tax REAL NOT NULL DEFAULT 0,
     notes TEXT NOT NULL DEFAULT '',
     summary TEXT NOT NULL DEFAULT '',
+    currency TEXT NOT NULL DEFAULT 'GBP',
     status TEXT NOT NULL DEFAULT 'draft',
     created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
     updated_by TEXT REFERENCES users(id) ON DELETE SET NULL,
@@ -126,6 +127,7 @@ MIGRATIONS = [
     ("settings", "company_number", "TEXT NOT NULL DEFAULT ''"),
     ("settings", "logo_data", "TEXT NOT NULL DEFAULT ''"),
     ("quotes", "summary", "TEXT NOT NULL DEFAULT ''"),
+    ("quotes", "currency", "TEXT NOT NULL DEFAULT 'GBP'"),
 ]
 
 

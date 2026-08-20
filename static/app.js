@@ -33,7 +33,22 @@
     quotesSort: { key: "date", dir: "desc" },
   };
 
-  const fmt = (n) => (state.settings ? state.settings.currency : "£") + (Number(n) || 0).toFixed(2);
+  // Three supported currencies (GBP default, per international sales). Quotes
+  // store a currency CODE (GBP/USD/EUR); the company-wide Settings default
+  // used to store a free-typed symbol (e.g. "£") before this feature existed —
+  // currencySymbolFor() understands both so old data keeps rendering correctly.
+  const CURRENCY_SYMBOLS = { GBP: "£", USD: "$", EUR: "€" };
+  const LEGACY_SYMBOL_TO_CODE = { "£": "GBP", "$": "USD", "€": "EUR" };
+  function currencySymbolFor(value) {
+    if (CURRENCY_SYMBOLS[value]) return CURRENCY_SYMBOLS[value];
+    if (value) return value; // legacy free-typed symbol, e.g. "£" from before this feature
+    return "£";
+  }
+  function currencyCodeFor(value) {
+    if (CURRENCY_SYMBOLS[value]) return value;
+    return LEGACY_SYMBOL_TO_CODE[value] || "GBP";
+  }
+  const fmt = (n, currency) => currencySymbolFor(currency || (state.settings ? state.settings.currency : "£")) + (Number(n) || 0).toFixed(2);
   const todayISO = () => new Date().toISOString().slice(0, 10);
   const $ = (id) => document.getElementById(id);
 
@@ -200,19 +215,26 @@
   }
 
   /* ---------- Dashboard ---------- */
+  // Sums quote totals per currency rather than across them — adding £ and $
+  // amounts together as one number would be financially misleading since we
+  // don't have live exchange rates to convert them onto a common basis.
+  function formatGroupedTotal(quotes) {
+    const totals = {};
+    quotes.forEach(q => { totals[q.currency || "GBP"] = (totals[q.currency || "GBP"] || 0) + quoteTotal(q); });
+    const parts = Object.entries(totals).map(([currency, sum]) => fmt(sum, currency));
+    return parts.length ? parts.join("  ·  ") : fmt(0);
+  }
+
   function renderDashboard() {
     const total = state.quotes.length;
     const accepted = state.quotes.filter(q => q.status === "accepted");
-    const pipelineValue = state.quotes
-      .filter(q => q.status === "sent" || q.status === "draft")
-      .reduce((s, q) => s + quoteTotal(q), 0);
-    const acceptedValue = accepted.reduce((s, q) => s + quoteTotal(q), 0);
+    const pipeline = state.quotes.filter(q => q.status === "sent" || q.status === "draft");
     const thisMonth = state.quotes.filter(q => (q.date || "").slice(0, 7) === todayISO().slice(0, 7)).length;
 
     $("statRow").innerHTML = `
       <div class="stat-tile"><div class="label">Total quotes</div><div class="value">${total}</div></div>
-      <div class="stat-tile"><div class="label">Open pipeline value</div><div class="value">${fmt(pipelineValue)}</div></div>
-      <div class="stat-tile"><div class="label">Accepted value</div><div class="value accent-good">${fmt(acceptedValue)}</div></div>
+      <div class="stat-tile"><div class="label">Open pipeline value</div><div class="value">${formatGroupedTotal(pipeline)}</div></div>
+      <div class="stat-tile"><div class="label">Accepted value</div><div class="value accent-good">${formatGroupedTotal(accepted)}</div></div>
       <div class="stat-tile"><div class="label">Created this month</div><div class="value">${thisMonth}</div></div>
     `;
 
@@ -313,7 +335,7 @@
         <td>${q.date || ""}</td>
         ${withValidUntil ? `<td>${q.validUntil || ""}</td>` : ""}
         <td>${statusBadge(q.status)}</td>
-        <td class="num">${fmt(quoteTotal(q))}</td>
+        <td class="num">${fmt(quoteTotal(q), q.currency)}</td>
         <td class="row-actions">
           <button class="ghost icon-btn edit-quote" title="Edit">✏️</button>
           <button class="ghost icon-btn duplicate-quote" title="Duplicate as a new quote">⧉</button>
@@ -497,7 +519,7 @@
     $("sCompanyAddress").value = state.settings.companyAddress;
     $("sCompanyEmail").value = state.settings.companyEmail;
     $("sCompanyPhone").value = state.settings.companyPhone;
-    $("sCurrency").value = state.settings.currency;
+    $("sCurrency").value = currencyCodeFor(state.settings.currency);
     $("sDefaultTax").value = state.settings.defaultTax;
     $("sPrefix").value = state.settings.prefix;
     $("sDefaultNotes").value = state.settings.defaultNotes || "";
@@ -584,7 +606,7 @@
       companyAddress: $("sCompanyAddress").value.trim(),
       companyEmail: $("sCompanyEmail").value.trim(),
       companyPhone: $("sCompanyPhone").value.trim(),
-      currency: $("sCurrency").value.trim() || "£",
+      currency: $("sCurrency").value || "GBP",
       defaultTax: parseFloat($("sDefaultTax").value) || 0,
       prefix: $("sPrefix").value.trim() || "Q-",
       defaultNotes: $("sDefaultNotes").value,
@@ -650,6 +672,7 @@
     $("qDiscount").value = 0;
     $("qTax").value = state.settings ? state.settings.defaultTax : 20;
     $("qNotes").value = state.settings ? (state.settings.defaultNotes || "") : "";
+    $("qCurrency").value = currencyCodeFor(state.settings ? state.settings.currency : "GBP");
     $("qSummary").value = "";
     autoGrow($("qSummary"));
     $("qStatus").value = "draft";
@@ -670,6 +693,7 @@
     $("qDiscount").value = q.discount || 0;
     $("qTax").value = q.tax != null ? q.tax : (state.settings ? state.settings.defaultTax : 20);
     $("qNotes").value = q.notes || "";
+    $("qCurrency").value = q.currency || "GBP";
     $("qSummary").value = q.summary || "";
     autoGrow($("qSummary"));
     $("qStatus").value = q.status || "draft";
@@ -698,6 +722,7 @@
     $("qDiscount").value = q.discount || 0;
     $("qTax").value = q.tax != null ? q.tax : (state.settings ? state.settings.defaultTax : 20);
     $("qNotes").value = q.notes || "";
+    $("qCurrency").value = q.currency || "GBP";
     $("qSummary").value = q.summary || "";
     autoGrow($("qSummary"));
     $("qStatus").value = "draft"; // a copy always starts fresh, regardless of the original's status
@@ -729,7 +754,7 @@
         </td>
         <td><input type="number" class="it-qty" min="0" step="1" value="${it.qty}"></td>
         <td><input type="number" class="it-price" min="0" step="0.01" value="${it.unitPrice}"></td>
-        <td class="num it-total">${fmt(it.qty * it.unitPrice)}</td>
+        <td class="num it-total">${fmt(it.qty * it.unitPrice, $("qCurrency").value)}</td>
         <td><button class="ghost icon-btn danger it-remove" title="Remove">🗑</button></td>
       </tr>`).join("") : emptyRow(5, "No line items yet — add one or use quick-add from the catalog.");
 
@@ -746,8 +771,8 @@
         autoGrow(descEl);
         descEl.addEventListener("input", (e) => { item.description = e.target.value; autoGrow(e.target); });
       }
-      tr.querySelector(".it-qty")?.addEventListener("input", (e) => { item.qty = parseFloat(e.target.value) || 0; updateQuoteTotals(); tr.querySelector(".it-total").textContent = fmt(item.qty * item.unitPrice); });
-      tr.querySelector(".it-price")?.addEventListener("input", (e) => { item.unitPrice = parseFloat(e.target.value) || 0; updateQuoteTotals(); tr.querySelector(".it-total").textContent = fmt(item.qty * item.unitPrice); });
+      tr.querySelector(".it-qty")?.addEventListener("input", (e) => { item.qty = parseFloat(e.target.value) || 0; updateQuoteTotals(); tr.querySelector(".it-total").textContent = fmt(item.qty * item.unitPrice, $("qCurrency").value); });
+      tr.querySelector(".it-price")?.addEventListener("input", (e) => { item.unitPrice = parseFloat(e.target.value) || 0; updateQuoteTotals(); tr.querySelector(".it-total").textContent = fmt(item.qty * item.unitPrice, $("qCurrency").value); });
       tr.querySelector(".it-remove")?.addEventListener("click", () => { quoteItems = quoteItems.filter(i => i.id !== id); renderQuoteItems(); });
     });
     updateQuoteTotals();
@@ -759,11 +784,12 @@
     const tax = parseFloat($("qTax").value) || 0;
     const afterDiscount = subtotal * (1 - discount / 100);
     const total = afterDiscount * (1 + tax / 100);
-    $("qSubtotal").textContent = fmt(subtotal);
-    $("qGrandTotal").textContent = fmt(total);
+    $("qSubtotal").textContent = fmt(subtotal, $("qCurrency").value);
+    $("qGrandTotal").textContent = fmt(total, $("qCurrency").value);
   }
   $("qDiscount").addEventListener("input", updateQuoteTotals);
   $("qTax").addEventListener("input", updateQuoteTotals);
+  $("qCurrency").addEventListener("change", renderQuoteItems); // re-render so item totals & subtotal pick up the new currency symbol
   $("qSummary").addEventListener("input", (e) => autoGrow(e.target));
   $("addItemBtn").addEventListener("click", () => addQuoteItem());
 
@@ -801,6 +827,7 @@
       tax: parseFloat($("qTax").value) || 0,
       notes: $("qNotes").value,
       summary: $("qSummary").value,
+      currency: $("qCurrency").value,
       status: $("qStatus").value,
     };
 
@@ -835,6 +862,7 @@
       tax: parseFloat($("qTax").value) || 0,
       notes: $("qNotes").value,
       summary: $("qSummary").value,
+      currency: $("qCurrency").value,
       status: $("qStatus").value,
     };
     openPreview(draft);
@@ -876,15 +904,15 @@
         <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Total</th></tr></thead>
         <tbody>
           ${(q.items || []).map(it => `
-            <tr><td class="desc-cell">${it.partNumber ? `<strong>${escapeHtml(it.partNumber)}</strong><br>` : ""}${escapeHtml(it.description || "")}</td><td class="num">${it.qty}</td><td class="num">${fmt(it.unitPrice)}</td><td class="num">${fmt(it.qty * it.unitPrice)}</td></tr>
+            <tr><td class="desc-cell">${it.partNumber ? `<strong>${escapeHtml(it.partNumber)}</strong><br>` : ""}${escapeHtml(it.description || "")}</td><td class="num">${it.qty}</td><td class="num">${fmt(it.unitPrice, q.currency)}</td><td class="num">${fmt(it.qty * it.unitPrice, q.currency)}</td></tr>
           `).join("")}
         </tbody>
       </table>
       <div class="p-totals">
-        <div class="row"><span>Subtotal</span><span>${fmt(subtotal)}</span></div>
-        ${q.discount ? `<div class="row"><span>Discount (${q.discount}%)</span><span>-${fmt(discountAmt)}</span></div>` : ""}
-        ${q.tax ? `<div class="row"><span>Tax / VAT (${q.tax}%)</span><span>${fmt(taxAmt)}</span></div>` : ""}
-        <div class="row grand"><span>Total</span><span>${fmt(total)}</span></div>
+        <div class="row"><span>Subtotal</span><span>${fmt(subtotal, q.currency)}</span></div>
+        ${q.discount ? `<div class="row"><span>Discount (${q.discount}%)</span><span>-${fmt(discountAmt, q.currency)}</span></div>` : ""}
+        ${q.tax ? `<div class="row"><span>Tax / VAT (${q.tax}%)</span><span>${fmt(taxAmt, q.currency)}</span></div>` : ""}
+        <div class="row grand"><span>Total</span><span>${fmt(total, q.currency)}</span></div>
       </div>
       ${q.notes ? `<div class="p-notes">${escapeHtml(q.notes)}</div>` : ""}
     `;
