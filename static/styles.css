@@ -176,9 +176,35 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); opacity: 1
 .preview-actions button { background: #fff; }
 
 @media print {
-  body * { visibility: hidden; }
-  .preview-sheet, .preview-sheet * { visibility: visible; }
-  .preview-sheet { position: absolute; top: 0; left: 0; width: 100%; box-shadow: none; border-radius: 0; padding: 0 20px; }
+  /* Hide everything except the open preview modal. display:none (not
+     visibility:hidden) removes elements from layout entirely, and nothing
+     printable uses position:fixed/absolute — both matter for multi-page
+     quotes, otherwise the browser replays a fixed/absolute element on
+     every page instead of letting long content flow across pages. */
+  body > *:not(#previewBackdrop) { display: none !important; }
+  #previewBackdrop {
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    background: none !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  #previewBackdrop > div { max-width: none !important; width: auto !important; }
+  .preview-actions { display: none !important; }
+  .preview-sheet {
+    position: static !important;
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 20px 0 !important;
+  }
+  /* Let table rows break cleanly across a page instead of splitting a row
+     in half at the page boundary. */
+  .preview-sheet tr { break-inside: avoid; }
+  .preview-sheet thead { display: table-header-group; } /* repeat column headers on each new page */
 }
 
 .two-col { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; align-items: start; }
