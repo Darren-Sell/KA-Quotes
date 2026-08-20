@@ -141,7 +141,7 @@
     $("saveSettingsBtn").hidden = state.me.role !== "admin";
     $("sCompanyName").disabled = $("sCompanyAddress").disabled = $("sCompanyEmail").disabled =
       $("sCompanyPhone").disabled = $("sCurrency").disabled = $("sDefaultTax").disabled =
-      $("sPrefix").disabled = state.me.role !== "admin";
+      $("sPrefix").disabled = $("sDefaultNotes").disabled = state.me.role !== "admin";
 
     loadSettingsForm();
     populateCustomerSelect();
@@ -412,6 +412,7 @@
     $("sCurrency").value = state.settings.currency;
     $("sDefaultTax").value = state.settings.defaultTax;
     $("sPrefix").value = state.settings.prefix;
+    $("sDefaultNotes").value = state.settings.defaultNotes || "";
   }
 
   $("saveSettingsBtn").addEventListener("click", async () => {
@@ -423,6 +424,7 @@
       currency: $("sCurrency").value.trim() || "£",
       defaultTax: parseFloat($("sDefaultTax").value) || 0,
       prefix: $("sPrefix").value.trim() || "Q-",
+      defaultNotes: $("sDefaultNotes").value,
     };
     state.settings = await api("PUT", "/settings", payload);
     $("brandName").textContent = state.settings.companyName;
@@ -479,7 +481,7 @@
     $("qValidUntil").value = "";
     $("qDiscount").value = 0;
     $("qTax").value = state.settings ? state.settings.defaultTax : 20;
-    $("qNotes").value = "";
+    $("qNotes").value = state.settings ? (state.settings.defaultNotes || "") : "";
     $("qStatus").value = "draft";
     $("qCustomer").value = "";
     $("quoteFormError").textContent = "";

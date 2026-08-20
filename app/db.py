@@ -56,7 +56,8 @@ CREATE TABLE IF NOT EXISTS settings (
     currency TEXT NOT NULL DEFAULT '£',
     default_tax REAL NOT NULL DEFAULT 20,
     prefix TEXT NOT NULL DEFAULT 'KA-Q-',
-    next_num INTEGER NOT NULL DEFAULT 1001
+    next_num INTEGER NOT NULL DEFAULT 1001,
+    default_notes TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS products (
@@ -109,10 +110,27 @@ CREATE INDEX IF NOT EXISTS idx_quotes_customer_id ON quotes(customer_id);
 """
 
 
+# Columns added to existing tables after the initial release. CREATE TABLE
+# IF NOT EXISTS only helps on a brand-new database — a database created by
+# an earlier version of the app needs these added on top. Safe to re-run:
+# each column is only added if missing.
+MIGRATIONS = [
+    ("settings", "default_notes", "TEXT NOT NULL DEFAULT ''"),
+]
+
+
+def _run_migrations(db):
+    for table, column, coltype in MIGRATIONS:
+        existing = {row["name"] for row in db.execute(f"PRAGMA table_info({table})").fetchall()}
+        if column not in existing:
+            db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
+
+
 def init_db(app):
     with app.app_context():
         db = get_db()
         db.executescript(SCHEMA)
+        _run_migrations(db)
         db.execute(
             "INSERT OR IGNORE INTO settings (id) VALUES (1)"
         )
