@@ -69,6 +69,9 @@ def create_quote():
 
     status = data.get("status") if data.get("status") in VALID_STATUSES else "draft"
     currency = data.get("currency") if data.get("currency") in VALID_CURRENCIES else "GBP"
+    # VAT is only charged in GBP — enforced here as well as in the UI so it
+    # can't end up applied to a USD/EUR quote via a direct API call either.
+    tax = float(data.get("tax") or 0) if currency == "GBP" else 0
     qid = new_id()
     ts = now()
 
@@ -84,7 +87,7 @@ def create_quote():
         """INSERT INTO quotes (id, number, customer_id, date, valid_until, discount, tax, notes, summary, currency,
            status, created_by, updated_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (qid, number, data.get("customerId"), data.get("date") or "", data.get("validUntil") or "",
-         float(data.get("discount") or 0), float(data.get("tax") or 0), data.get("notes") or "",
+         float(data.get("discount") or 0), tax, data.get("notes") or "",
          data.get("summary") or "", currency, status, user["id"], user["id"], ts, ts),
     )
     _save_items(db, qid, data.get("items"))
@@ -105,6 +108,9 @@ def update_quote(qid):
 
     status = data.get("status") if data.get("status") in VALID_STATUSES else row["status"]
     currency = data.get("currency") if data.get("currency") in VALID_CURRENCIES else row["currency"]
+    # VAT is only charged in GBP — enforced here as well as in the UI so it
+    # can't end up applied to a USD/EUR quote via a direct API call either.
+    tax = (float(data.get("tax", row["tax"]) or 0) if currency == "GBP" else 0)
     db.execute(
         """UPDATE quotes SET number=?, customer_id=?, date=?, valid_until=?, discount=?, tax=?, notes=?, summary=?,
            currency=?, status=?, updated_by=?, updated_at=? WHERE id=?""",
@@ -114,7 +120,7 @@ def update_quote(qid):
             data.get("date", row["date"]),
             data.get("validUntil", row["valid_until"]),
             float(data.get("discount", row["discount"]) or 0),
-            float(data.get("tax", row["tax"]) or 0),
+            tax,
             data.get("notes", row["notes"]),
             data.get("summary", row["summary"]),
             currency,

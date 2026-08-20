@@ -673,6 +673,7 @@
     $("qTax").value = state.settings ? state.settings.defaultTax : 20;
     $("qNotes").value = state.settings ? (state.settings.defaultNotes || "") : "";
     $("qCurrency").value = currencyCodeFor(state.settings ? state.settings.currency : "GBP");
+    applyCurrencyTaxRule();
     $("qSummary").value = "";
     autoGrow($("qSummary"));
     $("qStatus").value = "draft";
@@ -694,6 +695,7 @@
     $("qTax").value = q.tax != null ? q.tax : (state.settings ? state.settings.defaultTax : 20);
     $("qNotes").value = q.notes || "";
     $("qCurrency").value = q.currency || "GBP";
+    applyCurrencyTaxRule();
     $("qSummary").value = q.summary || "";
     autoGrow($("qSummary"));
     $("qStatus").value = q.status || "draft";
@@ -723,6 +725,7 @@
     $("qTax").value = q.tax != null ? q.tax : (state.settings ? state.settings.defaultTax : 20);
     $("qNotes").value = q.notes || "";
     $("qCurrency").value = q.currency || "GBP";
+    applyCurrencyTaxRule();
     $("qSummary").value = q.summary || "";
     autoGrow($("qSummary"));
     $("qStatus").value = "draft"; // a copy always starts fresh, regardless of the original's status
@@ -787,9 +790,32 @@
     $("qSubtotal").textContent = fmt(subtotal, $("qCurrency").value);
     $("qGrandTotal").textContent = fmt(total, $("qCurrency").value);
   }
+
+  // We don't charge VAT on USD or EUR quotes — only GBP. Hides and zeroes
+  // the Tax/VAT field for those currencies rather than just leaving it
+  // editable, so it can't be left on by mistake. The last GBP tax rate is
+  // remembered (in a data attribute, not saved) so switching back to GBP
+  // within the same edit restores it instead of leaving it at zero.
+  function applyCurrencyTaxRule() {
+    const taxInput = $("qTax");
+    const chargesTax = $("qCurrency").value === "GBP";
+    $("qTaxRow").hidden = !chargesTax;
+    $("qTaxHiddenHint").hidden = chargesTax;
+    if (chargesTax) {
+      taxInput.disabled = false;
+      if ((parseFloat(taxInput.value) || 0) === 0 && taxInput.dataset.savedValue) {
+        taxInput.value = taxInput.dataset.savedValue;
+      }
+    } else {
+      if ((parseFloat(taxInput.value) || 0) > 0) taxInput.dataset.savedValue = taxInput.value;
+      taxInput.value = 0;
+      taxInput.disabled = true;
+    }
+  }
+
   $("qDiscount").addEventListener("input", updateQuoteTotals);
   $("qTax").addEventListener("input", updateQuoteTotals);
-  $("qCurrency").addEventListener("change", renderQuoteItems); // re-render so item totals & subtotal pick up the new currency symbol
+  $("qCurrency").addEventListener("change", () => { applyCurrencyTaxRule(); renderQuoteItems(); }); // re-render so item totals, subtotal & the VAT rule pick up the new currency
   $("qSummary").addEventListener("input", (e) => autoGrow(e.target));
   $("addItemBtn").addEventListener("click", () => addQuoteItem());
 
