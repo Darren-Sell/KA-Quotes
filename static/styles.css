@@ -186,9 +186,9 @@ td.cat-cell { vertical-align: top; padding-top: 9px; }
 .preview-sheet .p-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 26px; }
 .preview-sheet .p-left { max-width: 60%; }
 .preview-sheet .p-brand-block { text-align: right; }
-.preview-sheet .p-logo { display: block; max-height: 56px; max-width: 220px; margin-bottom: 10px; margin-left: auto; }
+.preview-sheet .p-logo { display: block; max-height: 84px; max-width: 260px; margin-bottom: 10px; margin-left: auto; }
 .preview-sheet .p-brand { font-size: 20px; font-weight: 700; }
-.preview-sheet .p-brand-sub { font-size: 12px; color: #555; white-space: pre-line; margin-top: 4px; }
+.preview-sheet .p-brand-sub { font-size: 12px; color: #555; white-space: pre-line; margin-top: 4px; text-align: left; }
 .preview-sheet .p-title { text-align: left; }
 .preview-sheet .p-title .q { font-size: 22px; font-weight: 700; color: #2a78d6; }
 .preview-sheet .p-title .meta { font-size: 12px; color: #555; margin-top: 4px; }
