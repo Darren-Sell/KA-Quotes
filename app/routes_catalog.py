@@ -70,7 +70,11 @@ def product_row_to_dict(row):
 @login_required
 def list_products():
     db = get_db()
-    rows = db.execute("SELECT * FROM products ORDER BY category COLLATE NOCASE ASC, name COLLATE NOCASE ASC").fetchall()
+    # Grouped by category, then by part number. SQL can't do a true natural
+    # sort (so "LA-10" sorts before "LA-9" here) — the frontend re-sorts with
+    # a numeric-aware comparison for display; this ordering is just a
+    # reasonable default for any other API consumer.
+    rows = db.execute("SELECT * FROM products ORDER BY category COLLATE NOCASE ASC, sku COLLATE NOCASE ASC").fetchall()
     return jsonify({"products": [product_row_to_dict(r) for r in rows]})
 
 

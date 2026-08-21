@@ -61,6 +61,19 @@
     }[ch]));
   }
 
+  // Natural/alphanumeric compare — treats runs of digits as numbers so
+  // "LA-9" sorts before "LA-10" (a plain string sort would put "LA-10"
+  // first, since "1" < "9" character-by-character).
+  const naturalCompare = (a, b) => String(a || "").localeCompare(String(b || ""), undefined, { numeric: true, sensitivity: "base" });
+
+  // Shared ordering for the product catalog everywhere it's listed: grouped
+  // by category (uncategorized parts first, matching the server's default
+  // ordering), then by part number within each category.
+  function sortProducts(list) {
+    list.sort((a, b) => naturalCompare(a.category, b.category) || naturalCompare(a.sku, b.sku));
+    return list;
+  }
+
   /* ---------- Boot / auth flow ---------- */
   async function boot() {
     let status;
@@ -137,7 +150,7 @@
       api("GET", "/categories"),
     ]);
     state.settings = settings;
-    state.products = products.products;
+    state.products = sortProducts(products.products);
     state.customers = customers.customers;
     state.quotes = quotes.quotes;
     state.categories = categories.categories;
@@ -421,7 +434,7 @@
 
   async function refreshProductsAndCategories() {
     const [products, categories] = await Promise.all([api("GET", "/products"), api("GET", "/categories")]);
-    state.products = products.products;
+    state.products = sortProducts(products.products);
     state.categories = categories.categories;
   }
 
@@ -681,7 +694,7 @@
       const updated = await api("PUT", "/products/" + id, { name, sku, price, category });
       const idx = state.products.findIndex(p => p.id === id);
       if (idx !== -1) state.products[idx] = updated;
-      state.products.sort((a, b) => a.name.localeCompare(b.name));
+      sortProducts(state.products);
       exitProductEditMode();
       clearProductForm();
       renderProducts(); renderCatalogQuickAdd();
@@ -689,7 +702,7 @@
     }
     const product = await api("POST", "/products", { name, sku, price, category });
     state.products.push(product);
-    state.products.sort((a, b) => a.name.localeCompare(b.name));
+    sortProducts(state.products);
     clearProductForm();
     renderProducts(); renderCatalogQuickAdd();
   });
