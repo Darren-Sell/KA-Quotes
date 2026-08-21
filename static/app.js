@@ -48,7 +48,8 @@
     if (CURRENCY_SYMBOLS[value]) return value;
     return LEGACY_SYMBOL_TO_CODE[value] || "GBP";
   }
-  const fmt = (n, currency) => currencySymbolFor(currency || (state.settings ? state.settings.currency : "£")) + (Number(n) || 0).toFixed(2);
+  const fmt = (n, currency) => currencySymbolFor(currency || (state.settings ? state.settings.currency : "£")) +
+    (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const todayISO = () => new Date().toISOString().slice(0, 10);
   const $ = (id) => document.getElementById(id);
 
@@ -401,7 +402,10 @@
         <td class="pn-cell">${escapeHtml(p.sku || "")}</td>
         <td class="desc-cell">${escapeHtml(p.name)}</td>
         <td class="num">${fmt(p.price)}</td>
-        <td class="row-actions"><button class="ghost icon-btn danger del-product" title="Delete">🗑</button></td>
+        <td class="row-actions">
+          <button class="ghost icon-btn copy-product" title="Copy — fill the form below to save as a new part">⧉</button>
+          <button class="ghost icon-btn danger del-product" title="Delete">🗑</button>
+        </td>
       </tr>`).join("") : emptyRow(4, "No products yet — add your parts and services above.");
     body.querySelectorAll(".del-product").forEach(btn => {
       btn.addEventListener("click", async (e) => {
@@ -411,6 +415,23 @@
         renderProducts(); renderCatalogQuickAdd();
       });
     });
+    body.querySelectorAll(".copy-product").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const id = e.target.closest("tr").dataset.id;
+        copyProductIntoForm(id);
+      });
+    });
+  }
+
+  function copyProductIntoForm(id) {
+    const p = state.products.find(p => p.id === id);
+    if (!p) return;
+    $("pSku").value = p.sku || "";
+    $("pName").value = p.name || "";
+    $("pPrice").value = p.price || "";
+    autoGrow($("pName"));
+    $("pSku").scrollIntoView({ behavior: "smooth", block: "center" });
+    $("pSku").focus();
   }
 
   $("addProductBtn").addEventListener("click", async () => {

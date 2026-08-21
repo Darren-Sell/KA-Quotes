@@ -143,7 +143,7 @@ input:disabled, select:disabled, textarea:disabled { opacity: 0.5; cursor: not-a
 .items-table td { vertical-align: top; padding-top: 10px; }
 .items-table input.it-partnum { font-weight: 700; margin-bottom: 6px; }
 .items-table textarea.it-desc { width: 100%; resize: none; overflow: hidden; min-height: 34px; line-height: 1.4; font-family: inherit; }
-.pn-cell { font-weight: 700; vertical-align: top; padding-top: 10px; }
+.pn-cell { font-weight: 700; vertical-align: top; padding-top: 10px; white-space: nowrap; }
 #pName { width: 100%; resize: none; overflow: hidden; min-height: 34px; line-height: 1.4; font-family: inherit; }
 td.desc-cell { white-space: pre-line; vertical-align: top; padding-top: 10px; }
 .totals-box { margin-left: auto; width: 300px; }
