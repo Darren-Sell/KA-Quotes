@@ -73,6 +73,17 @@ CREATE TABLE IF NOT EXISTS products (
     updated_at INTEGER NOT NULL
 );
 
+-- The canonical list of category names, kept separate from products.category
+-- (which stores the name as plain text) so the UI can offer a fixed picklist
+-- instead of free typing. COLLATE NOCASE on the UNIQUE constraint means
+-- "Linear Actuators" and "linear actuators" are treated as the same
+-- category, which is what actually prevents accidental near-duplicates.
+CREATE TABLE IF NOT EXISTS categories (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    created_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS customers (
     id TEXT PRIMARY KEY,
     company TEXT NOT NULL,
@@ -140,11 +151,29 @@ def _run_migrations(db):
             db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
 
 
+def _backfill_categories(db):
+    """Carry forward any free-typed category names already sitting on
+    products (from before the categories table existed) so nothing is lost
+    when the UI switches to picking from a fixed list. Safe to re-run —
+    INSERT OR IGNORE plus the COLLATE NOCASE unique constraint means an
+    already-known category (in any casing) is simply skipped.
+    """
+    rows = db.execute(
+        "SELECT DISTINCT category FROM products WHERE TRIM(category) != ''"
+    ).fetchall()
+    for row in rows:
+        db.execute(
+            "INSERT OR IGNORE INTO categories (id, name, created_at) VALUES (?,?,?)",
+            (new_id(), row["category"].strip(), now()),
+        )
+
+
 def init_db(app):
     with app.app_context():
         db = get_db()
         db.executescript(SCHEMA)
         _run_migrations(db)
+        _backfill_categories(db)
         db.execute(
             "INSERT OR IGNORE INTO settings (id) VALUES (1)"
         )

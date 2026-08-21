@@ -127,6 +127,88 @@ def delete_product(pid):
     return jsonify({"ok": True})
 
 
+# ---------------- Categories ----------------
+# A small fixed picklist for products.category, kept in its own table so the
+# UI can offer a dropdown instead of free text — the actual fix for typos
+# like "Actuator" vs "Actuators" ending up as two different categories.
+
+def category_row_to_dict(row):
+    return {"id": row["id"], "name": row["name"]}
+
+
+@bp.get("/categories")
+@login_required
+def list_categories():
+    db = get_db()
+    rows = db.execute("SELECT * FROM categories ORDER BY name COLLATE NOCASE ASC").fetchall()
+    return jsonify({"categories": [category_row_to_dict(r) for r in rows]})
+
+
+@bp.post("/categories")
+@login_required
+def create_category():
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "name_required"}), 400
+
+    db = get_db()
+    existing = db.execute("SELECT * FROM categories WHERE name = ? COLLATE NOCASE", (name,)).fetchone()
+    if existing:
+        # Someone already created this category (maybe in different casing) —
+        # hand back the existing one instead of erroring, so picking a
+        # near-duplicate name just quietly reuses the original.
+        return jsonify(category_row_to_dict(existing)), 200
+
+    cid = new_id()
+    db.execute("INSERT INTO categories (id, name, created_at) VALUES (?,?,?)", (cid, name, now()))
+    db.commit()
+    row = db.execute("SELECT * FROM categories WHERE id = ?", (cid,)).fetchone()
+    return jsonify(category_row_to_dict(row)), 201
+
+
+@bp.put("/categories/<cid>")
+@login_required
+def update_category(cid):
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "name_required"}), 400
+
+    db = get_db()
+    row = db.execute("SELECT * FROM categories WHERE id = ?", (cid,)).fetchone()
+    if not row:
+        return jsonify({"error": "not_found"}), 404
+
+    clash = db.execute("SELECT * FROM categories WHERE name = ? COLLATE NOCASE AND id != ?", (name, cid)).fetchone()
+    if clash:
+        return jsonify({"error": "name_taken"}), 409
+
+    old_name = row["name"]
+    db.execute("UPDATE categories SET name = ? WHERE id = ?", (name, cid))
+    # Renaming a category updates every product already tagged with the old
+    # name (matched case-insensitively) so nothing is silently orphaned.
+    db.execute("UPDATE products SET category = ? WHERE category = ? COLLATE NOCASE", (name, old_name))
+    db.commit()
+    row = db.execute("SELECT * FROM categories WHERE id = ?", (cid,)).fetchone()
+    return jsonify(category_row_to_dict(row))
+
+
+@bp.delete("/categories/<cid>")
+@login_required
+def delete_category(cid):
+    db = get_db()
+    row = db.execute("SELECT * FROM categories WHERE id = ?", (cid,)).fetchone()
+    if not row:
+        return jsonify({"error": "not_found"}), 404
+    db.execute("DELETE FROM categories WHERE id = ?", (cid,))
+    # Products that were tagged with this category fall back to "no
+    # category" rather than pointing at something that no longer exists.
+    db.execute("UPDATE products SET category = '' WHERE category = ? COLLATE NOCASE", (row["name"],))
+    db.commit()
+    return jsonify({"ok": True})
+
+
 # ---------------- Customers ----------------
 
 def customer_row_to_dict(row):

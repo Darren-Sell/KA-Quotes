@@ -220,12 +220,22 @@
       <div class="card-head"><h2>Product / part catalog</h2></div>
       <div class="grid-3" style="grid-template-columns: 1.1fr 0.9fr 1.3fr 0.7fr;">
         <div class="field"><label>Part number</label><input type="text" id="pSku" placeholder="e.g. LA-200"></div>
-        <div class="field"><label>Category</label><input type="text" id="pCategory" list="pCategoryList" placeholder="e.g. Linear actuators"></div>
+        <div class="field">
+          <label>Category</label>
+          <div style="display:flex; gap:6px;">
+            <select id="pCategory" style="flex:1;"><option value="">— No category —</option></select>
+            <button type="button" class="ghost icon-btn" id="pNewCategoryToggleBtn" title="Add a new category">+</button>
+          </div>
+        </div>
         <div class="field"><label>Description</label><textarea id="pName" rows="1" placeholder="e.g. Linear actuator LA-200"></textarea></div>
         <div class="field"><label>Unit price</label><input type="number" id="pPrice" min="0" step="0.01"></div>
       </div>
-      <datalist id="pCategoryList"></datalist>
-      <p class="hint">Press Enter in Description to start a new line — the formatting carries over when this product is added to a quote. Category is optional but makes the list below much easier to search and filter.</p>
+      <div class="toolbar" id="pNewCategoryRow" hidden style="margin-bottom:10px;">
+        <input type="text" id="pNewCategoryInput" placeholder="New category name" style="flex:1; min-width:200px;">
+        <button type="button" class="primary" id="pNewCategorySaveBtn">Add category</button>
+        <button type="button" class="ghost" id="pNewCategoryCancelBtn">Cancel</button>
+      </div>
+      <p class="hint">Press Enter in Description to start a new line — the formatting carries over when this product is added to a quote. Categories come from a fixed list (use the + button to add a new one) so parts stay grouped consistently.</p>
       <div class="toolbar">
         <button class="primary" id="addProductBtn">+ Add product</button>
         <button class="ghost" id="cancelEditProductBtn" hidden>Cancel</button>
@@ -240,6 +250,14 @@
           <select id="pFilterCategory"><option value="">All categories</option></select>
         </div>
         <button class="ghost" id="pFilterClearBtn">Clear filters</button>
+        <button class="ghost" id="pManageCategoriesBtn">Manage categories</button>
+      </div>
+      <div class="card" id="pManageCategoriesPanel" hidden style="background:var(--surface-2); margin-bottom:16px;">
+        <p class="hint" style="margin-top:0;">Rename a category to fix a typo (updates every part using it) or delete one that's no longer needed (those parts just lose their category, nothing is deleted).</p>
+        <table>
+          <thead><tr><th>Category</th><th></th></tr></thead>
+          <tbody id="manageCategoriesBody"></tbody>
+        </table>
       </div>
       <div style="overflow-x:auto;">
         <table style="margin-top:0;">

@@ -30,6 +30,7 @@
     users: [],
     editingQuoteId: null,
     editingProductId: null,
+    categories: [],
     skipNextAutoReset: false,
     quotesSort: { key: "date", dir: "desc" },
   };
@@ -128,16 +129,18 @@
   }
 
   async function loadApp() {
-    const [settings, products, customers, quotes] = await Promise.all([
+    const [settings, products, customers, quotes, categories] = await Promise.all([
       api("GET", "/settings"),
       api("GET", "/products"),
       api("GET", "/customers"),
       api("GET", "/quotes"),
+      api("GET", "/categories"),
     ]);
     state.settings = settings;
     state.products = products.products;
     state.customers = customers.customers;
     state.quotes = quotes.quotes;
+    state.categories = categories.categories;
 
     if (state.me.role === "admin") {
       const u = await api("GET", "/users");
@@ -397,23 +400,131 @@
 
   /* ---------- Products ---------- */
   const productFilters = { search: "", category: "" };
-
-  function productCategories() {
-    const cats = new Set(state.products.map(p => (p.category || "").trim()).filter(Boolean));
-    return [...cats].sort((a, b) => a.localeCompare(b));
-  }
+  let manageCategoryRenamingId = null;
 
   function renderProductCategoryOptions() {
-    const cats = productCategories();
-    const datalist = $("pCategoryList");
-    datalist.innerHTML = cats.map(c => `<option value="${escapeHtml(c)}">`).join("");
+    const cats = state.categories; // already sorted by the server
 
-    const select = $("pFilterCategory");
-    const prevValue = select.value;
-    select.innerHTML = `<option value="">All categories</option>` +
-      cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("") +
+    const formSelect = $("pCategory");
+    const prevFormValue = formSelect.value;
+    formSelect.innerHTML = `<option value="">— No category —</option>` +
+      cats.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join("");
+    if (!prevFormValue || cats.some(c => c.name === prevFormValue)) formSelect.value = prevFormValue;
+
+    const filterSelect = $("pFilterCategory");
+    const prevFilterValue = filterSelect.value;
+    filterSelect.innerHTML = `<option value="">All categories</option>` +
+      cats.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join("") +
       `<option value="__none__">(No category)</option>`;
-    if (cats.includes(prevValue) || prevValue === "__none__") select.value = prevValue;
+    if (cats.some(c => c.name === prevFilterValue) || prevFilterValue === "__none__") filterSelect.value = prevFilterValue;
+  }
+
+  async function refreshProductsAndCategories() {
+    const [products, categories] = await Promise.all([api("GET", "/products"), api("GET", "/categories")]);
+    state.products = products.products;
+    state.categories = categories.categories;
+  }
+
+  $("pNewCategoryToggleBtn").addEventListener("click", () => {
+    $("pNewCategoryRow").hidden = false;
+    $("pNewCategoryInput").value = "";
+    $("pNewCategoryInput").focus();
+  });
+  $("pNewCategoryCancelBtn").addEventListener("click", () => {
+    $("pNewCategoryRow").hidden = true;
+    $("pNewCategoryInput").value = "";
+  });
+  async function saveNewCategory() {
+    const name = $("pNewCategoryInput").value.trim();
+    if (!name) { $("pNewCategoryInput").focus(); return; }
+    const category = await api("POST", "/categories", { name });
+    if (!state.categories.some(c => c.id === category.id)) {
+      state.categories.push(category);
+      state.categories.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    renderProductCategoryOptions();
+    $("pCategory").value = category.name;
+    $("pNewCategoryRow").hidden = true;
+    $("pNewCategoryInput").value = "";
+  }
+  $("pNewCategorySaveBtn").addEventListener("click", saveNewCategory);
+  $("pNewCategoryInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); saveNewCategory(); }
+    if (e.key === "Escape") { $("pNewCategoryRow").hidden = true; $("pNewCategoryInput").value = ""; }
+  });
+
+  $("pManageCategoriesBtn").addEventListener("click", () => {
+    const panel = $("pManageCategoriesPanel");
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) { manageCategoryRenamingId = null; renderManageCategories(); }
+  });
+
+  function renderManageCategories() {
+    const body = $("manageCategoriesBody");
+    body.innerHTML = state.categories.length ? state.categories.map(c => `
+      <tr data-id="${c.id}">
+        <td>${manageCategoryRenamingId === c.id
+            ? `<input type="text" class="rename-category-input" value="${escapeHtml(c.name)}" style="width:100%;">`
+            : escapeHtml(c.name)}</td>
+        <td class="row-actions" style="justify-content:flex-end;">
+          ${manageCategoryRenamingId === c.id ? `
+            <button class="ghost icon-btn save-rename-category" title="Save">✓</button>
+            <button class="ghost icon-btn cancel-rename-category" title="Cancel">✕</button>
+          ` : `
+            <button class="ghost icon-btn rename-category" title="Rename">✎</button>
+            <button class="ghost icon-btn danger delete-category" title="Delete">🗑</button>
+          `}
+        </td>
+      </tr>`).join("") : emptyRow(2, "No categories yet — add one from the product form above.");
+
+    body.querySelectorAll(".rename-category").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        manageCategoryRenamingId = e.target.closest("tr").dataset.id;
+        renderManageCategories();
+        const input = body.querySelector(".rename-category-input");
+        if (input) { input.focus(); input.select(); }
+      });
+    });
+    body.querySelectorAll(".cancel-rename-category").forEach(btn => {
+      btn.addEventListener("click", () => { manageCategoryRenamingId = null; renderManageCategories(); });
+    });
+    body.querySelectorAll(".save-rename-category").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const tr = e.target.closest("tr");
+        const id = tr.dataset.id;
+        const name = tr.querySelector(".rename-category-input").value.trim();
+        if (!name) return;
+        try {
+          await api("PUT", "/categories/" + id, { name });
+          await refreshProductsAndCategories();
+          manageCategoryRenamingId = null;
+          renderManageCategories();
+          renderProducts();
+          renderCatalogQuickAdd();
+        } catch (err) {
+          alert(err.status === 409 ? "That category name is already in use." : friendlyError(err));
+        }
+      });
+    });
+    body.querySelectorAll(".rename-category-input").forEach(input => {
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); body.querySelector(".save-rename-category").click(); }
+        if (e.key === "Escape") { manageCategoryRenamingId = null; renderManageCategories(); }
+      });
+    });
+    body.querySelectorAll(".delete-category").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const tr = e.target.closest("tr");
+        const id = tr.dataset.id;
+        const cat = state.categories.find(c => c.id === id);
+        if (!confirm(`Delete the category "${cat ? cat.name : ""}"? Parts using it will just lose their category — nothing else is deleted.`)) return;
+        await api("DELETE", "/categories/" + id);
+        await refreshProductsAndCategories();
+        renderManageCategories();
+        renderProducts();
+        renderCatalogQuickAdd();
+      });
+    });
   }
 
   function filteredProducts() {
