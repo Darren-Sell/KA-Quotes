@@ -1087,9 +1087,27 @@
   $("qSummary").addEventListener("input", (e) => autoGrow(e.target));
   $("addItemBtn").addEventListener("click", () => addQuoteItem());
 
+  let quickAddCategoryFilter = "";
+
+  function renderQuickAddCategoryOptions() {
+    const select = $("qaFilterCategory");
+    const prevValue = select.value;
+    select.innerHTML = `<option value="">All categories</option>` +
+      state.categories.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join("") +
+      `<option value="__none__">(No category)</option>`;
+    if (state.categories.some(c => c.name === prevValue) || prevValue === "__none__") select.value = prevValue;
+    quickAddCategoryFilter = select.value;
+  }
+
   function renderCatalogQuickAdd() {
+    renderQuickAddCategoryOptions();
     const wrap = $("catalogQuickAdd");
-    wrap.innerHTML = state.products.length ? state.products.map(p => {
+    const visible = state.products.filter(p => {
+      if (quickAddCategoryFilter === "__none__") return !(p.category || "").trim();
+      if (quickAddCategoryFilter) return p.category === quickAddCategoryFilter;
+      return true;
+    });
+    wrap.innerHTML = visible.length ? visible.map(p => {
       const lines = (p.name || "").split("\n");
       const firstLine = lines[0] || "";
       const more = lines.length > 1 ? " …" : "";
@@ -1097,7 +1115,7 @@
       <button class="ghost quick-add-btn" data-id="${p.id}" style="width:100%; justify-content:space-between; margin-bottom:6px;">
         <span>${p.sku ? `<strong>${escapeHtml(p.sku)}</strong> — ` : ""}${escapeHtml(firstLine)}${more}</span><span>${fmt(p.price)}</span>
       </button>`;
-    }).join("") : `<p class="hint">Add products in the Products tab to quick-add them here.</p>`;
+    }).join("") : `<p class="hint">${state.products.length ? "No parts in this category." : "Add products in the Products tab to quick-add them here."}</p>`;
     wrap.querySelectorAll(".quick-add-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const p = state.products.find(p => p.id === btn.dataset.id);
@@ -1105,6 +1123,10 @@
       });
     });
   }
+  $("qaFilterCategory").addEventListener("change", (e) => {
+    quickAddCategoryFilter = e.target.value;
+    renderCatalogQuickAdd();
+  });
 
   $("saveQuoteBtn").addEventListener("click", async () => {
     const customerId = $("qCustomer").value;

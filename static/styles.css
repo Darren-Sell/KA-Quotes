@@ -254,10 +254,18 @@ td.cat-cell { vertical-align: top; padding-top: 9px; }
 }
 
 .two-col { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; align-items: start; }
+
+/* The quick-add catalog panel stays in view as the quote's line items grow
+   long, instead of scrolling out of reach above the fold. */
+.quick-add-col { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
+
 @media (max-width: 900px) {
   .stat-row { grid-template-columns: repeat(2, 1fr); }
   .two-col { grid-template-columns: 1fr; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  /* Stacked single-column layout — a sticky sidebar would just cover the
+     quote form as you scroll past it, so let it scroll normally instead. */
+  .quick-add-col { position: static; max-height: none; overflow-y: visible; }
 }
 
 /* Auth screens */
