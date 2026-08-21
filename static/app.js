@@ -29,6 +29,7 @@
     quotes: [],
     users: [],
     editingQuoteId: null,
+    editingProductId: null,
     skipNextAutoReset: false,
     quotesSort: { key: "date", dir: "desc" },
   };
@@ -403,6 +404,7 @@
         <td class="desc-cell">${escapeHtml(p.name)}</td>
         <td class="num">${fmt(p.price)}</td>
         <td class="row-actions">
+          <button class="ghost icon-btn edit-product" title="Edit this part">✎</button>
           <button class="ghost icon-btn copy-product" title="Copy — fill the form below to save as a new part">⧉</button>
           <button class="ghost icon-btn danger del-product" title="Delete">🗑</button>
         </td>
@@ -410,6 +412,7 @@
     body.querySelectorAll(".del-product").forEach(btn => {
       btn.addEventListener("click", async (e) => {
         const id = e.target.closest("tr").dataset.id;
+        if (state.editingProductId === id) exitProductEditMode();
         await api("DELETE", "/products/" + id);
         state.products = state.products.filter(p => p.id !== id);
         renderProducts(); renderCatalogQuickAdd();
@@ -418,7 +421,14 @@
     body.querySelectorAll(".copy-product").forEach(btn => {
       btn.addEventListener("click", (e) => {
         const id = e.target.closest("tr").dataset.id;
+        exitProductEditMode();
         copyProductIntoForm(id);
+      });
+    });
+    body.querySelectorAll(".edit-product").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const id = e.target.closest("tr").dataset.id;
+        editProductIntoForm(id);
       });
     });
   }
@@ -434,11 +444,52 @@
     $("pSku").focus();
   }
 
+  function editProductIntoForm(id) {
+    const p = state.products.find(p => p.id === id);
+    if (!p) return;
+    state.editingProductId = id;
+    $("pSku").value = p.sku || "";
+    $("pName").value = p.name || "";
+    $("pPrice").value = p.price || "";
+    autoGrow($("pName"));
+    $("addProductBtn").textContent = "Save changes";
+    $("cancelEditProductBtn").hidden = false;
+    $("pSku").scrollIntoView({ behavior: "smooth", block: "center" });
+    $("pSku").focus();
+  }
+
+  function exitProductEditMode() {
+    state.editingProductId = null;
+    $("addProductBtn").textContent = "+ Add product";
+    $("cancelEditProductBtn").hidden = true;
+  }
+
+  function clearProductForm() {
+    $("pName").value = ""; $("pSku").value = ""; $("pPrice").value = "";
+    autoGrow($("pName"));
+  }
+
+  $("cancelEditProductBtn").addEventListener("click", () => {
+    exitProductEditMode();
+    clearProductForm();
+  });
+
   $("addProductBtn").addEventListener("click", async () => {
     const name = $("pName").value.trim();
     const sku = $("pSku").value.trim();
     const price = parseFloat($("pPrice").value) || 0;
     if (!name) { alert("Enter a description."); return; }
+    if (state.editingProductId) {
+      const id = state.editingProductId;
+      const updated = await api("PUT", "/products/" + id, { name, sku, price });
+      const idx = state.products.findIndex(p => p.id === id);
+      if (idx !== -1) state.products[idx] = updated;
+      state.products.sort((a, b) => a.name.localeCompare(b.name));
+      exitProductEditMode();
+      clearProductForm();
+      renderProducts(); renderCatalogQuickAdd();
+      return;
+    }
     const product = await api("POST", "/products", { name, sku, price });
     state.products.push(product);
     state.products.sort((a, b) => a.name.localeCompare(b.name));
@@ -948,7 +999,7 @@
       </div>
       ${q.summary ? `<div class="p-summary">${escapeHtml(q.summary)}</div>` : ""}
       <table>
-        <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Total</th></tr></thead>
+        <thead><tr><th style="width:58%">Description</th><th class="num" style="width:9%">Qty</th><th class="num" style="width:16%">Unit price</th><th class="num" style="width:17%">Total</th></tr></thead>
         <tbody>
           ${(q.items || []).map(it => `
             <tr><td class="desc-cell">${it.partNumber ? `<strong>${escapeHtml(it.partNumber)}</strong><br>` : ""}${escapeHtml(it.description || "")}</td><td class="num">${it.qty}</td><td class="num">${fmt(it.unitPrice, q.currency)}</td><td class="num">${fmt(it.qty * it.unitPrice, q.currency)}</td></tr>
