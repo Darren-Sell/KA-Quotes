@@ -179,10 +179,12 @@ td.cat-cell { vertical-align: top; padding-top: 9px; }
   background: #ffffff; color: #111; width: 100%; max-width: 780px; border-radius: 10px;
   padding: 44px 48px; box-shadow: 0 20px 60px rgba(0,0,0,0.35);
 }
-.preview-sheet .p-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
-/* Company details sit top-right (like a letterhead), quote title/number
-   top-left, so the "Prepared for" customer block below ends up diagonally
-   opposite the company details — the way a letter is laid out. */
+/* Company details sit top-right (like a letterhead); the quote title and
+   the "Prepared for" customer block share the left column, stacked one
+   above the other — so the customer's details start level with the top of
+   the company block on the right, instead of trailing lower down the page. */
+.preview-sheet .p-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 26px; }
+.preview-sheet .p-left { max-width: 60%; }
 .preview-sheet .p-brand-block { text-align: right; }
 .preview-sheet .p-logo { display: block; max-height: 56px; max-width: 220px; margin-bottom: 10px; margin-left: auto; }
 .preview-sheet .p-brand { font-size: 20px; font-weight: 700; }
@@ -190,7 +192,7 @@ td.cat-cell { vertical-align: top; padding-top: 9px; }
 .preview-sheet .p-title { text-align: left; }
 .preview-sheet .p-title .q { font-size: 22px; font-weight: 700; color: #2a78d6; }
 .preview-sheet .p-title .meta { font-size: 12px; color: #555; margin-top: 4px; }
-.preview-sheet .p-parties { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 26px; }
+.preview-sheet .p-parties { margin-top: 22px; }
 .preview-sheet .p-parties .label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: #888; margin-bottom: 4px; }
 .preview-sheet table { width: 100%; border-collapse: collapse; margin-bottom: 20px; table-layout: fixed; }
 .preview-sheet th { border-bottom: 2px solid #111; padding: 8px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; text-align: left; }
