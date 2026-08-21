@@ -113,7 +113,10 @@
           </div>
 
           <div class="field">
-            <label>Description</label>
+            <div class="field-label-row">
+              <label>Description</label>
+              <button type="button" class="ghost bold-toggle-btn" data-target="qSummary" title="Bold the selected text">B</button>
+            </div>
             <textarea id="qSummary" rows="1" placeholder="Overview of the work covered by this quote — shown above the line items."></textarea>
           </div>
 
@@ -142,7 +145,10 @@
           </div>
 
           <div class="field" style="margin-top:14px;">
-            <label>Notes / terms (shown on the quote)</label>
+            <div class="field-label-row">
+              <label>Notes / terms (shown on the quote)</label>
+              <button type="button" class="ghost bold-toggle-btn" data-target="qNotes" title="Bold the selected text">B</button>
+            </div>
             <textarea id="qNotes" placeholder="Payment terms, delivery, warranty..."></textarea>
           </div>
 
@@ -327,7 +333,7 @@
 
   <!-- SETTINGS -->
   <section class="view" id="view-settings">
-    <div class="card" style="max-width:520px;">
+    <div class="card" style="max-width:760px;">
       <h2>Company details</h2>
       <div class="field">
         <label>Company logo</label>
@@ -343,7 +349,7 @@
         <p class="hint">Shown at the top of every printed quote. PNG or SVG with a transparent background works best.</p>
       </div>
       <div class="field"><label>Company name</label><input type="text" id="sCompanyName"></div>
-      <div class="field"><label>Address (shown on quotes)</label><textarea id="sCompanyAddress"></textarea></div>
+      <div class="field"><label>Address (shown on quotes)</label><textarea id="sCompanyAddress" class="textarea-lg"></textarea></div>
       <div class="field"><label>Email</label><input type="text" id="sCompanyEmail"></div>
       <div class="field"><label>Phone</label><input type="text" id="sCompanyPhone"></div>
       <div class="grid-2">
@@ -364,14 +370,20 @@
       </div>
       <p class="hint">New quotes start in this currency — each quote can still be switched to a different one before saving.</p>
       <div class="field">
-        <label>Default quote description</label>
-        <textarea id="sDefaultSummary" placeholder="e.g. Thank you for the opportunity to quote. Please find the details below."></textarea>
-        <p class="hint">Pre-fills the Description field on every new quote — shown above the line items, still fully editable per quote, this is just the starting text.</p>
+        <div class="field-label-row">
+          <label>Default quote description</label>
+          <button type="button" class="ghost bold-toggle-btn" data-target="sDefaultSummary" title="Bold the selected text">B</button>
+        </div>
+        <textarea id="sDefaultSummary" class="textarea-lg" placeholder="e.g. Thank you for the opportunity to quote. Please find the details below."></textarea>
+        <p class="hint">Pre-fills the Description field on every new quote — shown above the line items, still fully editable per quote, this is just the starting text. Select text and click B (or type **like this**) to bold it on the printed quote.</p>
       </div>
       <div class="field">
-        <label>Default quote notes / terms</label>
-        <textarea id="sDefaultNotes" placeholder="e.g. Payment due within 30 days. Prices exclude delivery."></textarea>
-        <p class="hint">Pre-fills the Notes field on every new quote — still fully editable per quote, this is just the starting text.</p>
+        <div class="field-label-row">
+          <label>Default quote notes / terms</label>
+          <button type="button" class="ghost bold-toggle-btn" data-target="sDefaultNotes" title="Bold the selected text">B</button>
+        </div>
+        <textarea id="sDefaultNotes" class="textarea-lg" placeholder="e.g. Payment due within 30 days. Prices exclude delivery."></textarea>
+        <p class="hint">Pre-fills the Notes field on every new quote — still fully editable per quote, this is just the starting text. Select text and click B (or type **like this**) to bold it on the printed quote.</p>
       </div>
       <p class="hint">The VAT and company number are printed in the footer of every quote page, alongside the page number.</p>
       <button class="primary" id="saveSettingsBtn">Save settings</button>

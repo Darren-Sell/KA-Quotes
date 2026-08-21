@@ -118,8 +118,15 @@ input:disabled, select:disabled, textarea:disabled { opacity: 0.5; cursor: not-a
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
 .field label { font-size: 12px; color: var(--text-secondary); }
 .field textarea { resize: vertical; min-height: 60px; }
+.field textarea.textarea-lg { min-height: 130px; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
 .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 14px; }
+
+/* A field label with a small inline action (currently just the "B" bold
+   toggle) sharing the row instead of a plain <label>. */
+.field-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.field-label-row label { margin: 0; }
+button.bold-toggle-btn { padding: 2px 9px; font-size: 12px; font-weight: 800; line-height: 1.5; }
 
 .badge {
   display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px;

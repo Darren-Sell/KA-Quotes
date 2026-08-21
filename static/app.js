@@ -55,10 +55,55 @@
   const todayISO = () => new Date().toISOString().slice(0, 10);
   const $ = (id) => document.getElementById(id);
 
+  // Dates are stored/edited as ISO (yyyy-mm-dd, what <input type="date">
+  // uses) but printed quotes should read day/month/year, UK-style.
+  function formatDateUK(iso) {
+    if (!iso) return "";
+    const parts = iso.split("-");
+    if (parts.length !== 3) return iso;
+    const [y, m, d] = parts;
+    return `${d}/${m}/${y}`;
+  }
+
   function escapeHtml(str) {
     return String(str == null ? "" : str).replace(/[&<>"']/g, ch => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
     }[ch]));
+  }
+
+  // Minimal **bold** support for the free-text fields that get printed
+  // (Description / Notes). Deliberately lightweight instead of a full rich
+  // text editor — escape first (so nothing typed can inject markup), then
+  // turn any **wrapped** segment into <strong>. The "B" button next to
+  // these fields wraps/unwraps the current selection with ** for people who
+  // don't want to type the markers by hand.
+  function renderFormatted(str) {
+    return escapeHtml(str).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  }
+
+  function toggleBoldSelection(id) {
+    const ta = $(id);
+    if (!ta) return;
+    const start = ta.selectionStart, end = ta.selectionEnd;
+    const value = ta.value;
+    if (start === end) {
+      // Nothing selected — drop in a placeholder and select it so typing
+      // immediately overwrites "bold text" with whatever's meant.
+      const placeholder = "bold text";
+      const insert = "**" + placeholder + "**";
+      ta.value = value.slice(0, start) + insert + value.slice(start);
+      ta.focus();
+      ta.setSelectionRange(start + 2, start + 2 + placeholder.length);
+      ta.dispatchEvent(new Event("input", { bubbles: true }));
+      return;
+    }
+    const selected = value.slice(start, end);
+    const already = selected.startsWith("**") && selected.endsWith("**") && selected.length > 4;
+    const next = already ? selected.slice(2, -2) : "**" + selected + "**";
+    ta.value = value.slice(0, start) + next + value.slice(end);
+    ta.focus();
+    ta.setSelectionRange(start, start + next.length);
+    ta.dispatchEvent(new Event("input", { bubbles: true }));
   }
 
   // Plain alphanumeric compare — character by character (case-insensitive),
@@ -307,6 +352,19 @@
       }
     };
     return rows.sort((a, b) => {
+      // Quotes often have no "Valid until" date. Without this, blank ones
+      // sort to the front on an ascending sort (since "" comes before any
+      // date string) and then jump to the front again when the direction
+      // is flipped — the order looks broken. Pin blanks at the bottom
+      // regardless of direction so only quotes that actually have a date
+      // move when you sort this column.
+      if (key === "validUntil") {
+        const va = a.validUntil || "", vb = b.validUntil || "";
+        if (!va && !vb) return 0;
+        if (!va) return 1;
+        if (!vb) return -1;
+        return va < vb ? -1 * mul : va > vb ? 1 * mul : 0;
+      }
       const va = sortValue(a), vb = sortValue(b);
       if (va < vb) return -1 * mul;
       if (va > vb) return 1 * mul;
@@ -1220,8 +1278,8 @@
           <div class="p-brand-sub">${escapeHtml(state.settings.companyAddress || "")}${state.settings.companyEmail ? "\n" + state.settings.companyEmail : ""}${state.settings.companyPhone ? "\n" + state.settings.companyPhone : ""}</div>
         </div>
         <div class="p-title">
-          <div class="q">QUOTE</div>
-          <div class="meta">${escapeHtml(q.number || "")}<br>Date: ${q.date || ""}${q.validUntil ? "<br>Valid until: " + q.validUntil : ""}</div>
+          <div class="q">QUOTATION</div>
+          <div class="meta">${escapeHtml(q.number || "")}<br>Date: ${formatDateUK(q.date)}${q.validUntil ? "<br>Valid until: " + formatDateUK(q.validUntil) : ""}</div>
         </div>
       </div>
       <div class="p-parties">
@@ -1233,7 +1291,7 @@
           ${cust && cust.address ? `<div>${escapeHtml(cust.address)}</div>` : ""}
         </div>
       </div>
-      ${q.summary ? `<div class="p-summary">${escapeHtml(q.summary)}</div>` : ""}
+      ${q.summary ? `<div class="p-summary">${renderFormatted(q.summary)}</div>` : ""}
       <table>
         <thead><tr><th style="width:58%">Description</th><th class="num" style="width:9%">Qty</th><th class="num" style="width:16%">Unit price</th><th class="num" style="width:17%">Total</th></tr></thead>
         <tbody>
@@ -1248,12 +1306,16 @@
         ${q.tax ? `<div class="row"><span>Tax / VAT (${q.tax}%)</span><span>${fmt(taxAmt, q.currency)}</span></div>` : ""}
         <div class="row grand"><span>Total</span><span>${fmt(total, q.currency)}</span></div>
       </div>
-      ${q.notes ? `<div class="p-notes">${escapeHtml(q.notes)}</div>` : ""}
+      ${q.notes ? `<div class="p-notes">${renderFormatted(q.notes)}</div>` : ""}
     `;
     $("previewBackdrop").classList.add("open");
   }
   $("closePreviewBtn").addEventListener("click", () => $("previewBackdrop").classList.remove("open"));
   $("printPreviewBtn").addEventListener("click", () => window.print());
+
+  document.querySelectorAll(".bold-toggle-btn").forEach(btn => {
+    btn.addEventListener("click", () => toggleBoldSelection(btn.dataset.target));
+  });
 
   boot();
 })();
