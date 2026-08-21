@@ -30,6 +30,7 @@
     users: [],
     editingQuoteId: null,
     editingProductId: null,
+    editingCustomerId: null,
     categories: [],
     skipNextAutoReset: false,
     quotesSort: { key: "date", dir: "desc" },
@@ -117,6 +118,13 @@
   function quoteNumberValue(q) {
     const match = /(\d+)\s*$/.exec((q && q.number) || "");
     return match ? parseInt(match[1], 10) : -Infinity;
+  }
+
+  // First token of a customer's contact name, so a printed quote can open
+  // with "Dear John," the way a letter would, from a "John Smith" contact.
+  function firstNameOf(name) {
+    const trimmed = String(name || "").trim();
+    return trimmed ? trimmed.split(/\s+/)[0] : "";
   }
 
   // Shared ordering for the product catalog everywhere it's listed: grouped
@@ -791,17 +799,57 @@
         <td>${escapeHtml(c.company)}</td>
         <td>${escapeHtml(c.contact || "")}</td>
         <td>${escapeHtml(c.email || "")}</td>
-        <td class="row-actions"><button class="ghost icon-btn danger del-customer" title="Delete">🗑</button></td>
+        <td class="row-actions">
+          <button class="ghost icon-btn edit-customer" title="Edit">✎</button>
+          <button class="ghost icon-btn danger del-customer" title="Delete">🗑</button>
+        </td>
       </tr>`).join("") : emptyRow(4, "No customers yet — add one above.");
     body.querySelectorAll(".del-customer").forEach(btn => {
       btn.addEventListener("click", async (e) => {
         const id = e.target.closest("tr").dataset.id;
+        if (state.editingCustomerId === id) exitCustomerEditMode();
         await api("DELETE", "/customers/" + id);
         state.customers = state.customers.filter(c => c.id !== id);
         renderCustomers(); populateCustomerSelect();
       });
     });
+    body.querySelectorAll(".edit-customer").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const id = e.target.closest("tr").dataset.id;
+        editCustomerIntoForm(id);
+      });
+    });
   }
+
+  function editCustomerIntoForm(id) {
+    const c = state.customers.find(c => c.id === id);
+    if (!c) return;
+    state.editingCustomerId = id;
+    $("cCompany").value = c.company || "";
+    $("cContact").value = c.contact || "";
+    $("cEmail").value = c.email || "";
+    $("cPhone").value = c.phone || "";
+    $("cAddress").value = c.address || "";
+    $("addCustomerBtn").textContent = "Save changes";
+    $("cancelEditCustomerBtn").hidden = false;
+    $("cCompany").scrollIntoView({ behavior: "smooth", block: "center" });
+    $("cCompany").focus();
+  }
+
+  function exitCustomerEditMode() {
+    state.editingCustomerId = null;
+    $("addCustomerBtn").textContent = "+ Add customer";
+    $("cancelEditCustomerBtn").hidden = true;
+  }
+
+  function clearCustomerForm() {
+    ["cCompany", "cContact", "cEmail", "cPhone", "cAddress"].forEach(id => $(id).value = "");
+  }
+
+  $("cancelEditCustomerBtn").addEventListener("click", () => {
+    exitCustomerEditMode();
+    clearCustomerForm();
+  });
 
   $("addCustomerBtn").addEventListener("click", async () => {
     const company = $("cCompany").value.trim();
@@ -810,10 +858,21 @@
     const phone = $("cPhone").value.trim();
     const address = $("cAddress").value.trim();
     if (!company) { alert("Enter a company name."); return; }
+    if (state.editingCustomerId) {
+      const id = state.editingCustomerId;
+      const updated = await api("PUT", "/customers/" + id, { company, contact, email, phone, address });
+      const idx = state.customers.findIndex(c => c.id === id);
+      if (idx !== -1) state.customers[idx] = updated;
+      state.customers.sort((a, b) => a.company.localeCompare(b.company));
+      exitCustomerEditMode();
+      clearCustomerForm();
+      renderCustomers(); populateCustomerSelect();
+      return;
+    }
     const customer = await api("POST", "/customers", { company, contact, email, phone, address });
     state.customers.push(customer);
     state.customers.sort((a, b) => a.company.localeCompare(b.company));
-    ["cCompany", "cContact", "cEmail", "cPhone", "cAddress"].forEach(id => $(id).value = "");
+    clearCustomerForm();
     renderCustomers(); populateCustomerSelect();
   });
 
@@ -1278,6 +1337,7 @@
   /* ---------- Preview / print ---------- */
   function openPreview(q) {
     const cust = state.customers.find(c => c.id === q.customerId);
+    const custFirstName = cust ? firstNameOf(cust.contact) : "";
     const subtotal = (q.items || []).reduce((s, it) => s + it.qty * it.unitPrice, 0);
     const discountAmt = subtotal * ((q.discount || 0) / 100);
     const afterDiscount = subtotal - discountAmt;
@@ -1306,6 +1366,7 @@
           ${cust && cust.address ? `<div>${escapeHtml(cust.address)}</div>` : ""}
         </div>
       </div>
+      ${custFirstName ? `<div class="p-greeting">Dear ${escapeHtml(custFirstName)},</div>` : ""}
       ${q.summary ? `<div class="p-summary">${renderFormatted(q.summary)}</div>` : ""}
       <table>
         <thead><tr><th style="width:58%">Description</th><th class="num" style="width:9%">Qty</th><th class="num" style="width:16%">Unit price</th><th class="num" style="width:17%">Total</th></tr></thead>
