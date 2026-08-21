@@ -1478,14 +1478,14 @@
     const sheet = $("previewSheet");
     sheet.innerHTML = `
       <div class="p-head">
-        <div>
-          ${state.settings.logo ? `<img class="p-logo" src="${state.settings.logo}" alt="${escapeHtml(state.settings.companyName)} logo">` : ""}
-          <div class="p-brand">${escapeHtml(state.settings.companyName)}</div>
-          <div class="p-brand-sub">${escapeHtml(state.settings.companyAddress || "")}${state.settings.companyEmail ? "\n" + state.settings.companyEmail : ""}${state.settings.companyPhone ? "\n" + state.settings.companyPhone : ""}</div>
-        </div>
         <div class="p-title">
           <div class="q">QUOTATION</div>
           <div class="meta">${escapeHtml(q.number || "")}<br>Date: ${formatDateUK(q.date)}${q.validUntil ? "<br>Valid until: " + formatDateUK(q.validUntil) : ""}</div>
+        </div>
+        <div class="p-brand-block">
+          ${state.settings.logo ? `<img class="p-logo" src="${state.settings.logo}" alt="${escapeHtml(state.settings.companyName)} logo">` : ""}
+          <div class="p-brand">${escapeHtml(state.settings.companyName)}</div>
+          <div class="p-brand-sub">${escapeHtml(state.settings.companyAddress || "")}${state.settings.companyEmail ? "\n" + state.settings.companyEmail : ""}${state.settings.companyPhone ? "\n" + state.settings.companyPhone : ""}</div>
         </div>
       </div>
       <div class="p-parties">
