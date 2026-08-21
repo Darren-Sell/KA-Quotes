@@ -61,16 +61,16 @@
     }[ch]));
   }
 
-  // Natural/alphanumeric compare — treats runs of digits as numbers so
-  // "LA-9" sorts before "LA-10" (a plain string sort would put "LA-10"
-  // first, since "1" < "9" character-by-character).
-  const naturalCompare = (a, b) => String(a || "").localeCompare(String(b || ""), undefined, { numeric: true, sensitivity: "base" });
+  // Plain alphanumeric compare — character by character (case-insensitive),
+  // e.g. "LA-100" sorts before "LA-20" before "LA-9" because '1' < '2' < '9'
+  // at the first differing character. No numeric-aware reordering.
+  const alphaCompare = (a, b) => String(a || "").localeCompare(String(b || ""), undefined, { sensitivity: "base" });
 
   // Shared ordering for the product catalog everywhere it's listed: grouped
   // by category (uncategorized parts first, matching the server's default
   // ordering), then by part number within each category.
   function sortProducts(list) {
-    list.sort((a, b) => naturalCompare(a.category, b.category) || naturalCompare(a.sku, b.sku));
+    list.sort((a, b) => alphaCompare(a.category, b.category) || alphaCompare(a.sku, b.sku));
     return list;
   }
 
