@@ -253,7 +253,11 @@
         <button class="ghost" id="pManageCategoriesBtn">Manage categories</button>
       </div>
       <div class="card" id="pManageCategoriesPanel" hidden style="background:var(--surface-2); margin-bottom:16px;">
-        <p class="hint" style="margin-top:0;">Rename a category to fix a typo (updates every part using it) or delete one that's no longer needed (those parts just lose their category, nothing is deleted).</p>
+        <p class="hint" style="margin-top:0;">Add a new category, rename one to fix a typo (updates every part using it), or delete one that's no longer needed (those parts just lose their category, nothing is deleted).</p>
+        <div class="toolbar" style="margin-bottom:14px;">
+          <input type="text" id="pManageNewCategoryInput" placeholder="New category name" style="flex:1; min-width:200px;">
+          <button type="button" class="primary" id="pManageNewCategorySaveBtn">+ Add category</button>
+        </div>
         <table>
           <thead><tr><th>Category</th><th></th></tr></thead>
           <tbody id="manageCategoriesBody"></tbody>

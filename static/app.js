@@ -425,6 +425,18 @@
     state.categories = categories.categories;
   }
 
+  // Shared "create a category" logic — used by both the quick + button next
+  // to the product form's Category field, and the "Manage categories" panel.
+  async function createCategory(name) {
+    const category = await api("POST", "/categories", { name });
+    if (!state.categories.some(c => c.id === category.id)) {
+      state.categories.push(category);
+      state.categories.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    renderProductCategoryOptions();
+    return category;
+  }
+
   $("pNewCategoryToggleBtn").addEventListener("click", () => {
     $("pNewCategoryRow").hidden = false;
     $("pNewCategoryInput").value = "";
@@ -437,12 +449,7 @@
   async function saveNewCategory() {
     const name = $("pNewCategoryInput").value.trim();
     if (!name) { $("pNewCategoryInput").focus(); return; }
-    const category = await api("POST", "/categories", { name });
-    if (!state.categories.some(c => c.id === category.id)) {
-      state.categories.push(category);
-      state.categories.sort((a, b) => a.name.localeCompare(b.name));
-    }
-    renderProductCategoryOptions();
+    const category = await createCategory(name);
     $("pCategory").value = category.name;
     $("pNewCategoryRow").hidden = true;
     $("pNewCategoryInput").value = "";
@@ -453,10 +460,28 @@
     if (e.key === "Escape") { $("pNewCategoryRow").hidden = true; $("pNewCategoryInput").value = ""; }
   });
 
+  async function saveNewCategoryFromManagePanel() {
+    const input = $("pManageNewCategoryInput");
+    const name = input.value.trim();
+    if (!name) { input.focus(); return; }
+    await createCategory(name);
+    input.value = "";
+    input.focus();
+    renderManageCategories();
+  }
+  $("pManageNewCategorySaveBtn").addEventListener("click", saveNewCategoryFromManagePanel);
+  $("pManageNewCategoryInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); saveNewCategoryFromManagePanel(); }
+  });
+
   $("pManageCategoriesBtn").addEventListener("click", () => {
     const panel = $("pManageCategoriesPanel");
     panel.hidden = !panel.hidden;
-    if (!panel.hidden) { manageCategoryRenamingId = null; renderManageCategories(); }
+    if (!panel.hidden) {
+      manageCategoryRenamingId = null;
+      renderManageCategories();
+      $("pManageNewCategoryInput").focus();
+    }
   });
 
   function renderManageCategories() {
@@ -475,7 +500,7 @@
             <button class="ghost icon-btn danger delete-category" title="Delete">🗑</button>
           `}
         </td>
-      </tr>`).join("") : emptyRow(2, "No categories yet — add one from the product form above.");
+      </tr>`).join("") : emptyRow(2, "No categories yet — add one above.");
 
     body.querySelectorAll(".rename-category").forEach(btn => {
       btn.addEventListener("click", (e) => {
