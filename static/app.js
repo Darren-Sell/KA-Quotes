@@ -396,11 +396,47 @@
   }
 
   /* ---------- Products ---------- */
+  const productFilters = { search: "", category: "" };
+
+  function productCategories() {
+    const cats = new Set(state.products.map(p => (p.category || "").trim()).filter(Boolean));
+    return [...cats].sort((a, b) => a.localeCompare(b));
+  }
+
+  function renderProductCategoryOptions() {
+    const cats = productCategories();
+    const datalist = $("pCategoryList");
+    datalist.innerHTML = cats.map(c => `<option value="${escapeHtml(c)}">`).join("");
+
+    const select = $("pFilterCategory");
+    const prevValue = select.value;
+    select.innerHTML = `<option value="">All categories</option>` +
+      cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("") +
+      `<option value="__none__">(No category)</option>`;
+    if (cats.includes(prevValue) || prevValue === "__none__") select.value = prevValue;
+  }
+
+  function filteredProducts() {
+    const search = productFilters.search.trim().toLowerCase();
+    return state.products.filter(p => {
+      if (productFilters.category === "__none__" && (p.category || "").trim()) return false;
+      if (productFilters.category && productFilters.category !== "__none__" && p.category !== productFilters.category) return false;
+      if (search) {
+        const haystack = `${p.sku || ""} ${p.name || ""} ${p.category || ""}`.toLowerCase();
+        if (!haystack.includes(search)) return false;
+      }
+      return true;
+    });
+  }
+
   function renderProducts() {
+    renderProductCategoryOptions();
     const body = $("productsBody");
-    body.innerHTML = state.products.length ? state.products.map(p => `
+    const visible = filteredProducts();
+    body.innerHTML = visible.length ? visible.map(p => `
       <tr data-id="${p.id}">
         <td class="pn-cell">${escapeHtml(p.sku || "")}</td>
+        <td class="cat-cell">${p.category ? `<span class="tag">${escapeHtml(p.category)}</span>` : ""}</td>
         <td class="desc-cell">${escapeHtml(p.name)}</td>
         <td class="num">${fmt(p.price)}</td>
         <td class="row-actions">
@@ -408,7 +444,15 @@
           <button class="ghost icon-btn copy-product" title="Copy — fill the form below to save as a new part">⧉</button>
           <button class="ghost icon-btn danger del-product" title="Delete">🗑</button>
         </td>
-      </tr>`).join("") : emptyRow(4, "No products yet — add your parts and services above.");
+      </tr>`).join("") : emptyRow(5, state.products.length ? "No parts match your search/filter." : "No products yet — add your parts and services above.");
+
+    const summary = $("pFilterSummary");
+    if (productFilters.search || productFilters.category) {
+      summary.textContent = `Showing ${visible.length} of ${state.products.length} parts.`;
+    } else {
+      summary.textContent = state.products.length ? `${state.products.length} part${state.products.length === 1 ? "" : "s"} in the catalog.` : "";
+    }
+
     body.querySelectorAll(".del-product").forEach(btn => {
       btn.addEventListener("click", async (e) => {
         const id = e.target.closest("tr").dataset.id;
@@ -433,10 +477,25 @@
     });
   }
 
+  $("pSearchInput").addEventListener("input", (e) => {
+    productFilters.search = e.target.value;
+    renderProducts();
+  });
+  $("pFilterCategory").addEventListener("change", (e) => {
+    productFilters.category = e.target.value;
+    renderProducts();
+  });
+  $("pFilterClearBtn").addEventListener("click", () => {
+    productFilters.search = ""; productFilters.category = "";
+    $("pSearchInput").value = ""; $("pFilterCategory").value = "";
+    renderProducts();
+  });
+
   function copyProductIntoForm(id) {
     const p = state.products.find(p => p.id === id);
     if (!p) return;
     $("pSku").value = p.sku || "";
+    $("pCategory").value = p.category || "";
     $("pName").value = p.name || "";
     $("pPrice").value = p.price || "";
     autoGrow($("pName"));
@@ -449,6 +508,7 @@
     if (!p) return;
     state.editingProductId = id;
     $("pSku").value = p.sku || "";
+    $("pCategory").value = p.category || "";
     $("pName").value = p.name || "";
     $("pPrice").value = p.price || "";
     autoGrow($("pName"));
@@ -465,7 +525,7 @@
   }
 
   function clearProductForm() {
-    $("pName").value = ""; $("pSku").value = ""; $("pPrice").value = "";
+    $("pName").value = ""; $("pSku").value = ""; $("pPrice").value = ""; $("pCategory").value = "";
     autoGrow($("pName"));
   }
 
@@ -478,10 +538,11 @@
     const name = $("pName").value.trim();
     const sku = $("pSku").value.trim();
     const price = parseFloat($("pPrice").value) || 0;
+    const category = $("pCategory").value.trim();
     if (!name) { alert("Enter a description."); return; }
     if (state.editingProductId) {
       const id = state.editingProductId;
-      const updated = await api("PUT", "/products/" + id, { name, sku, price });
+      const updated = await api("PUT", "/products/" + id, { name, sku, price, category });
       const idx = state.products.findIndex(p => p.id === id);
       if (idx !== -1) state.products[idx] = updated;
       state.products.sort((a, b) => a.name.localeCompare(b.name));
@@ -490,11 +551,10 @@
       renderProducts(); renderCatalogQuickAdd();
       return;
     }
-    const product = await api("POST", "/products", { name, sku, price });
+    const product = await api("POST", "/products", { name, sku, price, category });
     state.products.push(product);
     state.products.sort((a, b) => a.name.localeCompare(b.name));
-    $("pName").value = ""; $("pSku").value = ""; $("pPrice").value = "";
-    autoGrow($("pName"));
+    clearProductForm();
     renderProducts(); renderCatalogQuickAdd();
   });
   $("pName").addEventListener("input", (e) => autoGrow(e.target));

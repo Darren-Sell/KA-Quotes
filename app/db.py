@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS products (
     name TEXT NOT NULL,
     sku TEXT NOT NULL DEFAULT '',
     price REAL NOT NULL DEFAULT 0,
+    category TEXT NOT NULL DEFAULT '',
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
 );
@@ -128,6 +129,7 @@ MIGRATIONS = [
     ("settings", "logo_data", "TEXT NOT NULL DEFAULT ''"),
     ("quotes", "summary", "TEXT NOT NULL DEFAULT ''"),
     ("quotes", "currency", "TEXT NOT NULL DEFAULT 'GBP'"),
+    ("products", "category", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 

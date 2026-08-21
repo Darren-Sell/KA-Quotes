@@ -218,27 +218,42 @@
   <section class="view" id="view-products">
     <div class="card">
       <div class="card-head"><h2>Product / part catalog</h2></div>
-      <div class="grid-3" style="grid-template-columns: 1.4fr 1fr 0.9fr;">
+      <div class="grid-3" style="grid-template-columns: 1.1fr 0.9fr 1.3fr 0.7fr;">
         <div class="field"><label>Part number</label><input type="text" id="pSku" placeholder="e.g. LA-200"></div>
+        <div class="field"><label>Category</label><input type="text" id="pCategory" list="pCategoryList" placeholder="e.g. Linear actuators"></div>
         <div class="field"><label>Description</label><textarea id="pName" rows="1" placeholder="e.g. Linear actuator LA-200"></textarea></div>
         <div class="field"><label>Unit price</label><input type="number" id="pPrice" min="0" step="0.01"></div>
       </div>
-      <p class="hint">Press Enter in Description to start a new line — the formatting carries over when this product is added to a quote.</p>
+      <datalist id="pCategoryList"></datalist>
+      <p class="hint">Press Enter in Description to start a new line — the formatting carries over when this product is added to a quote. Category is optional but makes the list below much easier to search and filter.</p>
       <div class="toolbar">
         <button class="primary" id="addProductBtn">+ Add product</button>
         <button class="ghost" id="cancelEditProductBtn" hidden>Cancel</button>
       </div>
+      <div class="toolbar" style="align-items:flex-end; margin-top:20px; margin-bottom:16px;">
+        <div class="field" style="margin-bottom:0; min-width:220px; flex:1;">
+          <label>Search</label>
+          <input type="text" id="pSearchInput" placeholder="Part number, description, category...">
+        </div>
+        <div class="field" style="margin-bottom:0; min-width:180px;">
+          <label>Category</label>
+          <select id="pFilterCategory"><option value="">All categories</option></select>
+        </div>
+        <button class="ghost" id="pFilterClearBtn">Clear filters</button>
+      </div>
       <div style="overflow-x:auto;">
-        <table style="margin-top:16px;">
+        <table style="margin-top:0;">
           <thead><tr>
-            <th style="width:22%">Part number</th>
-            <th style="width:43%">Description</th>
+            <th style="width:18%">Part number</th>
+            <th style="width:14%">Category</th>
+            <th style="width:33%">Description</th>
             <th class="num" style="width:15%">Unit price</th>
             <th style="width:20%"></th>
           </tr></thead>
           <tbody id="productsBody"></tbody>
         </table>
       </div>
+      <p class="hint" id="pFilterSummary"></p>
     </div>
   </section>
 

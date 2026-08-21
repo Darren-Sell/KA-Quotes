@@ -146,6 +146,12 @@ input:disabled, select:disabled, textarea:disabled { opacity: 0.5; cursor: not-a
 .pn-cell { font-weight: 700; vertical-align: top; padding-top: 10px; white-space: nowrap; }
 #pName { width: 100%; resize: none; overflow: hidden; min-height: 34px; line-height: 1.4; font-family: inherit; }
 td.desc-cell { white-space: pre-line; vertical-align: top; padding-top: 10px; }
+td.cat-cell { vertical-align: top; padding-top: 9px; }
+.tag {
+  display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 600; color: var(--text-secondary); background: var(--surface-2);
+  border: 1px solid var(--border); white-space: nowrap;
+}
 .totals-box { margin-left: auto; width: 300px; }
 .totals-box .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
 .totals-box .row.grand { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 10px; font-size: 16px; font-weight: 700; }

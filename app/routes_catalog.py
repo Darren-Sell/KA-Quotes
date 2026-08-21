@@ -63,14 +63,14 @@ def update_settings():
 # ---------------- Products ----------------
 
 def product_row_to_dict(row):
-    return {"id": row["id"], "name": row["name"], "sku": row["sku"], "price": row["price"]}
+    return {"id": row["id"], "name": row["name"], "sku": row["sku"], "price": row["price"], "category": row["category"]}
 
 
 @bp.get("/products")
 @login_required
 def list_products():
     db = get_db()
-    rows = db.execute("SELECT * FROM products ORDER BY name COLLATE NOCASE ASC").fetchall()
+    rows = db.execute("SELECT * FROM products ORDER BY category COLLATE NOCASE ASC, name COLLATE NOCASE ASC").fetchall()
     return jsonify({"products": [product_row_to_dict(r) for r in rows]})
 
 
@@ -83,13 +83,14 @@ def create_product():
         return jsonify({"error": "name_required"}), 400
     sku = (data.get("sku") or "").strip()
     price = float(data.get("price") or 0)
+    category = (data.get("category") or "").strip()
 
     db = get_db()
     pid = new_id()
     ts = now()
     db.execute(
-        "INSERT INTO products (id, name, sku, price, created_at, updated_at) VALUES (?,?,?,?,?,?)",
-        (pid, name, sku, price, ts, ts),
+        "INSERT INTO products (id, name, sku, price, category, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
+        (pid, name, sku, price, category, ts, ts),
     )
     db.commit()
     row = db.execute("SELECT * FROM products WHERE id = ?", (pid,)).fetchone()
@@ -107,9 +108,10 @@ def update_product(pid):
     name = (data.get("name") or row["name"]).strip()
     sku = data.get("sku", row["sku"])
     price = float(data.get("price", row["price"]) or 0)
+    category = (data.get("category", row["category"]) or "").strip()
     db.execute(
-        "UPDATE products SET name=?, sku=?, price=?, updated_at=? WHERE id=?",
-        (name, sku, price, now(), pid),
+        "UPDATE products SET name=?, sku=?, price=?, category=?, updated_at=? WHERE id=?",
+        (name, sku, price, category, now(), pid),
     )
     db.commit()
     row = db.execute("SELECT * FROM products WHERE id = ?", (pid,)).fetchone()
