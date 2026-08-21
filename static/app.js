@@ -1108,12 +1108,14 @@
       return true;
     });
     wrap.innerHTML = visible.length ? visible.map(p => {
-      const lines = (p.name || "").split("\n");
-      const firstLine = lines[0] || "";
-      const more = lines.length > 1 ? " …" : "";
+      // Just the part number, to keep this list quick to scan — the full
+      // description still shows once the part is added as a line item.
+      // Fall back to the description for the rare part with no number set,
+      // so the button is never blank.
+      const label = p.sku || (p.name || "").split("\n")[0] || "(untitled)";
       return `
-      <button class="ghost quick-add-btn" data-id="${p.id}" style="width:100%; justify-content:space-between; margin-bottom:6px;">
-        <span>${p.sku ? `<strong>${escapeHtml(p.sku)}</strong> — ` : ""}${escapeHtml(firstLine)}${more}</span><span>${fmt(p.price)}</span>
+      <button class="ghost quick-add-btn" data-id="${p.id}" title="${escapeHtml(p.name || "")}" style="width:100%; justify-content:space-between; margin-bottom:6px;">
+        <strong>${escapeHtml(label)}</strong><span>${fmt(p.price)}</span>
       </button>`;
     }).join("") : `<p class="hint">${state.products.length ? "No parts in this category." : "Add products in the Products tab to quick-add them here."}</p>`;
     wrap.querySelectorAll(".quick-add-btn").forEach(btn => {
