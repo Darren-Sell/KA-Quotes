@@ -254,11 +254,15 @@ td.cat-cell { vertical-align: top; padding-top: 9px; }
   }
 }
 
-.two-col { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; align-items: start; }
+.two-col { display: grid; grid-template-columns: 2.2fr 1fr; gap: 16px; align-items: start; }
 
 /* The quick-add catalog panel stays in view as the quote's line items grow
    long, instead of scrolling out of reach above the fold. */
 .quick-add-col { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
+
+/* Denser rows now that each entry is just a part number and a price — lets
+   more of the catalog show at once and keeps the panel itself narrow. */
+.quick-add-btn { padding: 6px 10px; font-size: 12.5px; margin-bottom: 4px; }
 
 @media (max-width: 900px) {
   .stat-row { grid-template-columns: repeat(2, 1fr); }

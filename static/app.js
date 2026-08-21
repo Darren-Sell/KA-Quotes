@@ -1127,7 +1127,7 @@
       // so the button is never blank.
       const label = p.sku || (p.name || "").split("\n")[0] || "(untitled)";
       return `
-      <button class="ghost quick-add-btn" data-id="${p.id}" title="${escapeHtml(p.name || "")}" style="width:100%; justify-content:space-between; margin-bottom:6px;">
+      <button class="ghost quick-add-btn" data-id="${p.id}" title="${escapeHtml(p.name || "")}" style="width:100%; justify-content:space-between;">
         <strong>${escapeHtml(label)}</strong><span>${fmt(p.price)}</span>
       </button>`;
     }).join("") : `<p class="hint">${state.products.length ? "No parts in this category." : "Add products in the Products tab to quick-add them here."}</p>`;
