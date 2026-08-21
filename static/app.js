@@ -111,6 +111,14 @@
   // at the first differing character. No numeric-aware reordering.
   const alphaCompare = (a, b) => String(a || "").localeCompare(String(b || ""), undefined, { sensitivity: "base" });
 
+  // The numeric part of a quote number (e.g. "KA-Q-1002" -> 1002), for
+  // sorting the dashboard's recent-quotes list by "most recently raised"
+  // regardless of what the prefix is set to.
+  function quoteNumberValue(q) {
+    const match = /(\d+)\s*$/.exec((q && q.number) || "");
+    return match ? parseInt(match[1], 10) : -Infinity;
+  }
+
   // Shared ordering for the product catalog everywhere it's listed: grouped
   // by category (uncategorized parts first, matching the server's default
   // ordering), then by part number within each category.
@@ -302,9 +310,16 @@
       <div class="stat-tile"><div class="label">Created this month</div><div class="value">${thisMonth}</div></div>
     `;
 
-    const recent = [...state.quotes].sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 6);
+    // Highest quote number first (i.e. most recently raised) — compare the
+    // numeric part rather than the string so "KA-Q-10000" still sorts above
+    // "KA-Q-9999" once the count passes a digit boundary.
+    const recent = [...state.quotes].sort((a, b) => quoteNumberValue(b) - quoteNumberValue(a)).slice(0, 6);
     const body = $("recentQuotesBody");
-    body.innerHTML = recent.length ? recent.map(rowHtml).join("") : emptyRow(6, "No quotes yet — create your first one.");
+    // NB: pass a plain callback rather than `recent.map(rowHtml)` — Array.map
+    // also passes the row's index as rowHtml's second argument
+    // (withValidUntil), which made every row except the first render an
+    // extra "Valid until" cell the dashboard table has no column for.
+    body.innerHTML = recent.length ? recent.map(q => rowHtml(q, false)).join("") : emptyRow(6, "No quotes yet — create your first one.");
     wireRowButtons(body);
   }
 
