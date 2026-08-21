@@ -139,6 +139,7 @@ input:disabled, select:disabled, textarea:disabled { opacity: 0.5; cursor: not-a
 .badge.role-admin { color: var(--series-1); background: color-mix(in srgb, var(--series-1) 14%, transparent); }
 .badge.role-member { color: var(--text-secondary); background: var(--surface-2); border-color: var(--border); }
 
+.items-table { table-layout: fixed; }
 .items-table input, .items-table select { width: 100%; }
 .items-table td { vertical-align: top; padding-top: 10px; }
 .items-table input.it-partnum { font-weight: 700; margin-bottom: 6px; }
