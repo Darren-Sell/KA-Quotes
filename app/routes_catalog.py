@@ -21,6 +21,7 @@ def settings_row_to_dict(row):
         "vatNumber": row["vat_number"],
         "companyNumber": row["company_number"],
         "logo": row["logo_data"],
+        "defaultSummary": row["default_summary"],
     }
 
 
@@ -39,7 +40,8 @@ def update_settings():
     db = get_db()
     db.execute(
         """UPDATE settings SET company_name=?, company_address=?, company_email=?, company_phone=?,
-           currency=?, default_tax=?, prefix=?, default_notes=?, vat_number=?, company_number=?, logo_data=?
+           currency=?, default_tax=?, prefix=?, default_notes=?, vat_number=?, company_number=?, logo_data=?,
+           default_summary=?
            WHERE id = 1""",
         (
             (data.get("companyName") or "Your company").strip(),
@@ -53,6 +55,7 @@ def update_settings():
             data.get("vatNumber") or "",
             data.get("companyNumber") or "",
             data.get("logo") or "",
+            data.get("defaultSummary") or "",
         ),
     )
     db.commit()

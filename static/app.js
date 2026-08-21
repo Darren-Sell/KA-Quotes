@@ -176,7 +176,8 @@
     $("sCompanyName").disabled = $("sCompanyAddress").disabled = $("sCompanyEmail").disabled =
       $("sCompanyPhone").disabled = $("sCurrency").disabled = $("sDefaultTax").disabled =
       $("sPrefix").disabled = $("sDefaultNotes").disabled = $("sVatNumber").disabled =
-      $("sCompanyNumber").disabled = $("sLogoUploadBtn").disabled = $("sLogoRemoveBtn").disabled = state.me.role !== "admin";
+      $("sCompanyNumber").disabled = $("sLogoUploadBtn").disabled = $("sLogoRemoveBtn").disabled =
+      $("sDefaultSummary").disabled = state.me.role !== "admin";
 
     loadSettingsForm();
     updatePrintFooterStyle();
@@ -803,6 +804,7 @@
     $("sCurrency").value = currencyCodeFor(state.settings.currency);
     $("sDefaultTax").value = state.settings.defaultTax;
     $("sPrefix").value = state.settings.prefix;
+    $("sDefaultSummary").value = state.settings.defaultSummary || "";
     $("sDefaultNotes").value = state.settings.defaultNotes || "";
     $("sVatNumber").value = state.settings.vatNumber || "";
     $("sCompanyNumber").value = state.settings.companyNumber || "";
@@ -890,6 +892,7 @@
       currency: $("sCurrency").value || "GBP",
       defaultTax: parseFloat($("sDefaultTax").value) || 0,
       prefix: $("sPrefix").value.trim() || "Q-",
+      defaultSummary: $("sDefaultSummary").value,
       defaultNotes: $("sDefaultNotes").value,
       vatNumber: $("sVatNumber").value.trim(),
       companyNumber: $("sCompanyNumber").value.trim(),
@@ -955,7 +958,7 @@
     $("qNotes").value = state.settings ? (state.settings.defaultNotes || "") : "";
     $("qCurrency").value = currencyCodeFor(state.settings ? state.settings.currency : "GBP");
     applyCurrencyTaxRule();
-    $("qSummary").value = "";
+    $("qSummary").value = state.settings ? (state.settings.defaultSummary || "") : "";
     autoGrow($("qSummary"));
     $("qStatus").value = "draft";
     $("qCustomer").value = "";

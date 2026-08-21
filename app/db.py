@@ -60,7 +60,8 @@ CREATE TABLE IF NOT EXISTS settings (
     default_notes TEXT NOT NULL DEFAULT '',
     vat_number TEXT NOT NULL DEFAULT '',
     company_number TEXT NOT NULL DEFAULT '',
-    logo_data TEXT NOT NULL DEFAULT ''
+    logo_data TEXT NOT NULL DEFAULT '',
+    default_summary TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS products (
@@ -141,6 +142,7 @@ MIGRATIONS = [
     ("quotes", "summary", "TEXT NOT NULL DEFAULT ''"),
     ("quotes", "currency", "TEXT NOT NULL DEFAULT 'GBP'"),
     ("products", "category", "TEXT NOT NULL DEFAULT ''"),
+    ("settings", "default_summary", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 
