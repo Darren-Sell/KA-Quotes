@@ -286,3 +286,76 @@ def delete_customer(cid):
     db.execute("DELETE FROM customers WHERE id = ?", (cid,))
     db.commit()
     return jsonify({"ok": True})
+
+
+# ---------------- Contacts ----------------
+# Named buyers at a customer — some customers have several people who place
+# orders, so a quote can be addressed to whichever one of them asked for it
+# rather than always greeting the same, single contact.
+
+def contact_row_to_dict(row):
+    return {
+        "id": row["id"], "customerId": row["customer_id"], "name": row["name"],
+        "email": row["email"], "phone": row["phone"],
+    }
+
+
+@bp.get("/contacts")
+@login_required
+def list_contacts():
+    db = get_db()
+    rows = db.execute("SELECT * FROM contacts ORDER BY name COLLATE NOCASE ASC").fetchall()
+    return jsonify({"contacts": [contact_row_to_dict(r) for r in rows]})
+
+
+@bp.post("/contacts")
+@login_required
+def create_contact():
+    data = request.get_json(silent=True) or {}
+    customer_id = data.get("customerId") or ""
+    name = (data.get("name") or "").strip()
+    if not customer_id or not name:
+        return jsonify({"error": "customer_and_name_required"}), 400
+
+    db = get_db()
+    customer = db.execute("SELECT id FROM customers WHERE id = ?", (customer_id,)).fetchone()
+    if not customer:
+        return jsonify({"error": "customer_not_found"}), 404
+
+    ctid = new_id()
+    db.execute(
+        "INSERT INTO contacts (id, customer_id, name, email, phone, created_at) VALUES (?,?,?,?,?,?)",
+        (ctid, customer_id, name, data.get("email") or "", data.get("phone") or "", now()),
+    )
+    db.commit()
+    row = db.execute("SELECT * FROM contacts WHERE id = ?", (ctid,)).fetchone()
+    return jsonify(contact_row_to_dict(row)), 201
+
+
+@bp.put("/contacts/<ctid>")
+@login_required
+def update_contact(ctid):
+    data = request.get_json(silent=True) or {}
+    db = get_db()
+    row = db.execute("SELECT * FROM contacts WHERE id = ?", (ctid,)).fetchone()
+    if not row:
+        return jsonify({"error": "not_found"}), 404
+
+    name = (data.get("name") or row["name"]).strip()
+    if not name:
+        return jsonify({"error": "name_required"}), 400
+    email = data.get("email", row["email"])
+    phone = data.get("phone", row["phone"])
+    db.execute("UPDATE contacts SET name=?, email=?, phone=? WHERE id=?", (name, email, phone, ctid))
+    db.commit()
+    row = db.execute("SELECT * FROM contacts WHERE id = ?", (ctid,)).fetchone()
+    return jsonify(contact_row_to_dict(row))
+
+
+@bp.delete("/contacts/<ctid>")
+@login_required
+def delete_contact(ctid):
+    db = get_db()
+    db.execute("DELETE FROM contacts WHERE id = ?", (ctid,))
+    db.commit()
+    return jsonify({"ok": True})

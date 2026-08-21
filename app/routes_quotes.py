@@ -16,6 +16,7 @@ def quote_row_to_dict(db, row):
         "id": row["id"],
         "number": row["number"],
         "customerId": row["customer_id"],
+        "contactId": row["contact_id"],
         "date": row["date"],
         "validUntil": row["valid_until"],
         "discount": row["discount"],
@@ -84,9 +85,9 @@ def create_quote():
     db.execute("UPDATE settings SET next_num = next_num + 1 WHERE id = 1")
 
     db.execute(
-        """INSERT INTO quotes (id, number, customer_id, date, valid_until, discount, tax, notes, summary, currency,
-           status, created_by, updated_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-        (qid, number, data.get("customerId"), data.get("date") or "", data.get("validUntil") or "",
+        """INSERT INTO quotes (id, number, customer_id, contact_id, date, valid_until, discount, tax, notes, summary, currency,
+           status, created_by, updated_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (qid, number, data.get("customerId"), data.get("contactId") or "", data.get("date") or "", data.get("validUntil") or "",
          float(data.get("discount") or 0), tax, data.get("notes") or "",
          data.get("summary") or "", currency, status, user["id"], user["id"], ts, ts),
     )
@@ -112,11 +113,12 @@ def update_quote(qid):
     # can't end up applied to a USD/EUR quote via a direct API call either.
     tax = (float(data.get("tax", row["tax"]) or 0) if currency == "GBP" else 0)
     db.execute(
-        """UPDATE quotes SET number=?, customer_id=?, date=?, valid_until=?, discount=?, tax=?, notes=?, summary=?,
+        """UPDATE quotes SET number=?, customer_id=?, contact_id=?, date=?, valid_until=?, discount=?, tax=?, notes=?, summary=?,
            currency=?, status=?, updated_by=?, updated_at=? WHERE id=?""",
         (
             data.get("number", row["number"]),
             data.get("customerId", row["customer_id"]),
+            data.get("contactId", row["contact_id"]),
             data.get("date", row["date"]),
             data.get("validUntil", row["valid_until"]),
             float(data.get("discount", row["discount"]) or 0),

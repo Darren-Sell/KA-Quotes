@@ -96,10 +96,25 @@ CREATE TABLE IF NOT EXISTS customers (
     updated_at INTEGER NOT NULL
 );
 
+-- Some customers have several people who place orders — each contact is a
+-- separate named buyer at a customer, so a given quote can be addressed to
+-- whichever one of them actually asked for it. This replaces the old single
+-- free-typed "contact" name on the customer itself (still on that table but
+-- no longer edited directly — see _backfill_contacts()).
+CREATE TABLE IF NOT EXISTS contacts (
+    id TEXT PRIMARY KEY,
+    customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL DEFAULT '',
+    phone TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS quotes (
     id TEXT PRIMARY KEY,
     number TEXT NOT NULL,
     customer_id TEXT REFERENCES customers(id) ON DELETE SET NULL,
+    contact_id TEXT NOT NULL DEFAULT '',
     date TEXT NOT NULL,
     valid_until TEXT NOT NULL DEFAULT '',
     discount REAL NOT NULL DEFAULT 0,
@@ -126,6 +141,7 @@ CREATE TABLE IF NOT EXISTS quote_items (
 
 CREATE INDEX IF NOT EXISTS idx_quote_items_quote_id ON quote_items(quote_id);
 CREATE INDEX IF NOT EXISTS idx_quotes_customer_id ON quotes(customer_id);
+CREATE INDEX IF NOT EXISTS idx_contacts_customer_id ON contacts(customer_id);
 """
 
 
@@ -143,6 +159,7 @@ MIGRATIONS = [
     ("quotes", "currency", "TEXT NOT NULL DEFAULT 'GBP'"),
     ("products", "category", "TEXT NOT NULL DEFAULT ''"),
     ("settings", "default_summary", "TEXT NOT NULL DEFAULT ''"),
+    ("quotes", "contact_id", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 
@@ -170,12 +187,35 @@ def _backfill_categories(db):
         )
 
 
+def _backfill_contacts(db):
+    """Turn each customer's old single free-typed contact name (from before
+    named buyers were tracked separately) into a real row in the new
+    contacts table, so multi-buyer customers can add the rest without
+    losing the one already on file. Safe to re-run — only backfills
+    customers that don't already have any contacts.
+    """
+    rows = db.execute(
+        "SELECT id, contact, email, phone FROM customers WHERE TRIM(contact) != ''"
+    ).fetchall()
+    for row in rows:
+        existing = db.execute(
+            "SELECT COUNT(*) AS n FROM contacts WHERE customer_id = ?", (row["id"],)
+        ).fetchone()
+        if existing["n"] > 0:
+            continue
+        db.execute(
+            "INSERT INTO contacts (id, customer_id, name, email, phone, created_at) VALUES (?,?,?,?,?,?)",
+            (new_id(), row["id"], row["contact"].strip(), row["email"] or "", row["phone"] or "", now()),
+        )
+
+
 def init_db(app):
     with app.app_context():
         db = get_db()
         db.executescript(SCHEMA)
         _run_migrations(db)
         _backfill_categories(db)
+        _backfill_contacts(db)
         db.execute(
             "INSERT OR IGNORE INTO settings (id) VALUES (1)"
         )

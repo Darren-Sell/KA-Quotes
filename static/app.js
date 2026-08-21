@@ -32,6 +32,7 @@
     editingProductId: null,
     editingCustomerId: null,
     categories: [],
+    contacts: [],
     skipNextAutoReset: false,
     quotesSort: { key: "date", dir: "desc" },
   };
@@ -203,18 +204,20 @@
   }
 
   async function loadApp() {
-    const [settings, products, customers, quotes, categories] = await Promise.all([
+    const [settings, products, customers, quotes, categories, contacts] = await Promise.all([
       api("GET", "/settings"),
       api("GET", "/products"),
       api("GET", "/customers"),
       api("GET", "/quotes"),
       api("GET", "/categories"),
+      api("GET", "/contacts"),
     ]);
     state.settings = settings;
     state.products = sortProducts(products.products);
     state.customers = customers.customers;
     state.quotes = quotes.quotes;
     state.categories = categories.categories;
+    state.contacts = contacts.contacts;
 
     if (state.me.role === "admin") {
       const u = await api("GET", "/users");
@@ -792,12 +795,16 @@
   autoGrow($("pName"));
 
   /* ---------- Customers ---------- */
+  function contactsForCustomer(customerId) {
+    return state.contacts.filter(ct => ct.customerId === customerId);
+  }
+
   function renderCustomers() {
     const body = $("customersBody");
     body.innerHTML = state.customers.length ? state.customers.map(c => `
       <tr data-id="${c.id}">
         <td>${escapeHtml(c.company)}</td>
-        <td>${escapeHtml(c.contact || "")}</td>
+        <td>${escapeHtml(contactsForCustomer(c.id).map(ct => ct.name).join(", "))}</td>
         <td>${escapeHtml(c.email || "")}</td>
         <td class="row-actions">
           <button class="ghost icon-btn edit-customer" title="Edit">✎</button>
@@ -810,6 +817,7 @@
         if (state.editingCustomerId === id) exitCustomerEditMode();
         await api("DELETE", "/customers/" + id);
         state.customers = state.customers.filter(c => c.id !== id);
+        state.contacts = state.contacts.filter(ct => ct.customerId !== id); // cascades server-side too
         renderCustomers(); populateCustomerSelect();
       });
     });
@@ -826,12 +834,15 @@
     if (!c) return;
     state.editingCustomerId = id;
     $("cCompany").value = c.company || "";
-    $("cContact").value = c.contact || "";
     $("cEmail").value = c.email || "";
     $("cPhone").value = c.phone || "";
     $("cAddress").value = c.address || "";
     $("addCustomerBtn").textContent = "Save changes";
     $("cancelEditCustomerBtn").hidden = false;
+    $("customerContactsSection").hidden = false;
+    exitContactEditMode();
+    clearContactForm();
+    renderCustomerContacts(id);
     $("cCompany").scrollIntoView({ behavior: "smooth", block: "center" });
     $("cCompany").focus();
   }
@@ -840,10 +851,13 @@
     state.editingCustomerId = null;
     $("addCustomerBtn").textContent = "+ Add customer";
     $("cancelEditCustomerBtn").hidden = true;
+    $("customerContactsSection").hidden = true;
+    exitContactEditMode();
+    clearContactForm();
   }
 
   function clearCustomerForm() {
-    ["cCompany", "cContact", "cEmail", "cPhone", "cAddress"].forEach(id => $(id).value = "");
+    ["cCompany", "cEmail", "cPhone", "cAddress"].forEach(id => $(id).value = "");
   }
 
   $("cancelEditCustomerBtn").addEventListener("click", () => {
@@ -853,14 +867,13 @@
 
   $("addCustomerBtn").addEventListener("click", async () => {
     const company = $("cCompany").value.trim();
-    const contact = $("cContact").value.trim();
     const email = $("cEmail").value.trim();
     const phone = $("cPhone").value.trim();
     const address = $("cAddress").value.trim();
     if (!company) { alert("Enter a company name."); return; }
     if (state.editingCustomerId) {
       const id = state.editingCustomerId;
-      const updated = await api("PUT", "/customers/" + id, { company, contact, email, phone, address });
+      const updated = await api("PUT", "/customers/" + id, { company, email, phone, address });
       const idx = state.customers.findIndex(c => c.id === id);
       if (idx !== -1) state.customers[idx] = updated;
       state.customers.sort((a, b) => a.company.localeCompare(b.company));
@@ -869,11 +882,94 @@
       renderCustomers(); populateCustomerSelect();
       return;
     }
-    const customer = await api("POST", "/customers", { company, contact, email, phone, address });
+    const customer = await api("POST", "/customers", { company, email, phone, address });
     state.customers.push(customer);
     state.customers.sort((a, b) => a.company.localeCompare(b.company));
-    clearCustomerForm();
     renderCustomers(); populateCustomerSelect();
+    // Immediately continue into edit mode for the customer just created —
+    // contacts need a saved customer to attach to, so this lets people add
+    // their buyers right away instead of having to find & re-open it.
+    editCustomerIntoForm(customer.id);
+  });
+
+  /* ---------- Contacts (named buyers at a customer) ---------- */
+  let editingContactId = null;
+
+  function renderCustomerContacts(customerId) {
+    const body = $("customerContactsBody");
+    const contacts = contactsForCustomer(customerId);
+    body.innerHTML = contacts.length ? contacts.map(ct => `
+      <tr data-id="${ct.id}">
+        <td>${escapeHtml(ct.name)}</td>
+        <td>${escapeHtml(ct.email || "")}</td>
+        <td>${escapeHtml(ct.phone || "")}</td>
+        <td class="row-actions">
+          <button class="ghost icon-btn edit-contact" title="Edit">✎</button>
+          <button class="ghost icon-btn danger del-contact" title="Delete">🗑</button>
+        </td>
+      </tr>`).join("") : emptyRow(4, "No contacts yet — add the people who buy from this company above.");
+    body.querySelectorAll(".del-contact").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const id = e.target.closest("tr").dataset.id;
+        if (editingContactId === id) { exitContactEditMode(); clearContactForm(); }
+        await api("DELETE", "/contacts/" + id);
+        state.contacts = state.contacts.filter(ct => ct.id !== id);
+        renderCustomerContacts(customerId);
+        renderCustomers();
+      });
+    });
+    body.querySelectorAll(".edit-contact").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const id = e.target.closest("tr").dataset.id;
+        const ct = state.contacts.find(ct => ct.id === id);
+        if (!ct) return;
+        editingContactId = id;
+        $("ctName").value = ct.name || "";
+        $("ctEmail").value = ct.email || "";
+        $("ctPhone").value = ct.phone || "";
+        $("addContactBtn").textContent = "Save contact";
+        $("cancelEditContactBtn").hidden = false;
+        $("ctName").focus();
+      });
+    });
+  }
+
+  function exitContactEditMode() {
+    editingContactId = null;
+    $("addContactBtn").textContent = "+ Add contact";
+    $("cancelEditContactBtn").hidden = true;
+  }
+
+  function clearContactForm() {
+    ["ctName", "ctEmail", "ctPhone"].forEach(id => $(id).value = "");
+  }
+
+  $("cancelEditContactBtn").addEventListener("click", () => {
+    exitContactEditMode();
+    clearContactForm();
+  });
+
+  $("addContactBtn").addEventListener("click", async () => {
+    const customerId = state.editingCustomerId;
+    if (!customerId) return; // contacts section is hidden without one, but guard anyway
+    const name = $("ctName").value.trim();
+    const email = $("ctEmail").value.trim();
+    const phone = $("ctPhone").value.trim();
+    if (!name) { alert("Enter a contact name."); return; }
+    if (editingContactId) {
+      const id = editingContactId;
+      const updated = await api("PUT", "/contacts/" + id, { name, email, phone });
+      const idx = state.contacts.findIndex(ct => ct.id === id);
+      if (idx !== -1) state.contacts[idx] = updated;
+    } else {
+      const created = await api("POST", "/contacts", { customerId, name, email, phone });
+      state.contacts.push(created);
+    }
+    exitContactEditMode();
+    clearContactForm();
+    renderCustomerContacts(customerId);
+    renderCustomers();
+    if ($("qCustomer").value === customerId) populateContactSelect(customerId, $("qContact").value);
   });
 
   /* ---------- Team / users (admin) ---------- */
@@ -1073,6 +1169,29 @@
     if (current) sel.value = current;
   }
 
+  // Fills the quote form's Contact dropdown with the chosen customer's
+  // named buyers. If a specific contact is requested (loading a saved
+  // quote) and still exists, it wins; otherwise, a customer with exactly
+  // one contact on file defaults to them — same as the old single-contact
+  // behaviour — while a customer with several buyers is left unselected so
+  // it's a deliberate choice which one this quote is addressed to.
+  function populateContactSelect(customerId, preferredContactId) {
+    const sel = $("qContact");
+    const contacts = contactsForCustomer(customerId || "");
+    sel.innerHTML = `<option value="">— No specific contact —</option>` +
+      contacts.map(ct => `<option value="${ct.id}">${escapeHtml(ct.name)}</option>`).join("");
+    sel.disabled = contacts.length === 0;
+    if (preferredContactId && contacts.some(ct => ct.id === preferredContactId)) {
+      sel.value = preferredContactId;
+    } else if (contacts.length === 1) {
+      sel.value = contacts[0].id;
+    } else {
+      sel.value = "";
+    }
+  }
+
+  $("qCustomer").addEventListener("change", () => populateContactSelect($("qCustomer").value));
+
   let quoteItems = [];
 
   async function resetQuoteForm() {
@@ -1094,6 +1213,7 @@
     autoGrow($("qSummary"));
     $("qStatus").value = "draft";
     $("qCustomer").value = "";
+    populateContactSelect("");
     $("quoteFormError").textContent = "";
     quoteItems = [];
     renderQuoteItems();
@@ -1118,6 +1238,7 @@
     $("quoteFormError").textContent = "";
     populateCustomerSelect();
     $("qCustomer").value = q.customerId || "";
+    populateContactSelect(q.customerId, q.contactId);
     quoteItems = (q.items || []).map(it => ({ ...it }));
     renderQuoteItems();
   }
@@ -1148,6 +1269,7 @@
     $("quoteFormError").textContent = "";
     populateCustomerSelect();
     $("qCustomer").value = q.customerId || "";
+    populateContactSelect(q.customerId, q.contactId);
     quoteItems = (q.items || []).map(it => ({ ...it, id: "tmp" + Math.random().toString(36).slice(2) }));
     renderQuoteItems();
   }
@@ -1286,6 +1408,7 @@
 
     const payload = {
       customerId,
+      contactId: $("qContact").value,
       date: $("qDate").value || todayISO(),
       validUntil: $("qValidUntil").value,
       items: quoteItems.map(it => ({ partNumber: it.partNumber || "", description: it.description, qty: it.qty, unitPrice: it.unitPrice })),
@@ -1321,6 +1444,7 @@
     const draft = {
       number: state.editingQuoteId ? $("qNumber").value : $("qNumber").value.replace(/\s*\(.*\)$/, ""),
       customerId,
+      contactId: $("qContact").value,
       date: $("qDate").value || todayISO(),
       validUntil: $("qValidUntil").value,
       items: quoteItems,
@@ -1337,7 +1461,14 @@
   /* ---------- Preview / print ---------- */
   function openPreview(q) {
     const cust = state.customers.find(c => c.id === q.customerId);
-    const custFirstName = cust ? firstNameOf(cust.contact) : "";
+    // The buyer this quote is addressed to. Falls back to the customer's
+    // only contact if none was explicitly chosen (covers quotes saved
+    // before per-quote contact selection existed, and single-contact
+    // customers generally) so the greeting doesn't just silently vanish.
+    const customerContacts = cust ? contactsForCustomer(cust.id) : [];
+    const contact = (q.contactId && state.contacts.find(ct => ct.id === q.contactId))
+      || (customerContacts.length === 1 ? customerContacts[0] : null);
+    const custFirstName = contact ? firstNameOf(contact.name) : "";
     const subtotal = (q.items || []).reduce((s, it) => s + it.qty * it.unitPrice, 0);
     const discountAmt = subtotal * ((q.discount || 0) / 100);
     const afterDiscount = subtotal - discountAmt;
@@ -1361,8 +1492,8 @@
         <div>
           <div class="label">Prepared for</div>
           <div>${cust ? escapeHtml(cust.company) : "—"}</div>
-          ${cust && cust.contact ? `<div>${escapeHtml(cust.contact)}</div>` : ""}
-          ${cust && cust.email ? `<div>${escapeHtml(cust.email)}</div>` : ""}
+          ${contact ? `<div>${escapeHtml(contact.name)}</div>` : ""}
+          ${(contact && contact.email) || (cust && cust.email) ? `<div>${escapeHtml((contact && contact.email) || (cust && cust.email) || "")}</div>` : ""}
           ${cust && cust.address ? `<div>${escapeHtml(cust.address)}</div>` : ""}
         </div>
       </div>

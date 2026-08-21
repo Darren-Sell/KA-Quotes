@@ -91,6 +91,10 @@
               <select id="qCustomer"></select>
             </div>
             <div class="field">
+              <label>Contact</label>
+              <select id="qContact"></select>
+            </div>
+            <div class="field">
               <label>Quote number</label>
               <input type="text" id="qNumber">
             </div>
@@ -293,20 +297,37 @@
   <section class="view" id="view-customers">
     <div class="card">
       <div class="card-head"><h2>Customers</h2></div>
-      <div class="grid-2">
+      <div class="grid-3">
         <div class="field"><label>Company name</label><input type="text" id="cCompany"></div>
-        <div class="field"><label>Contact name</label><input type="text" id="cContact" placeholder="e.g. John Smith"></div>
-        <div class="field"><label>Email</label><input type="email" id="cEmail"></div>
+        <div class="field"><label>Email</label><input type="email" id="cEmail" placeholder="General / accounts email"></div>
         <div class="field"><label>Phone</label><input type="text" id="cPhone"></div>
-        <div class="field" style="grid-column: 1 / -1;"><label>Address</label><textarea id="cAddress"></textarea></div>
       </div>
-      <p class="hint">The contact's first name (from Contact name) is used to greet them on printed quotes — "Dear John,".</p>
+      <div class="field"><label>Address</label><textarea id="cAddress"></textarea></div>
       <div class="toolbar">
         <button class="primary" id="addCustomerBtn">+ Add customer</button>
         <button class="ghost" id="cancelEditCustomerBtn" hidden>Cancel</button>
       </div>
+
+      <div id="customerContactsSection" hidden style="margin-top:22px; padding-top:18px; border-top:1px solid var(--border);">
+        <h2 style="font-size:13px;">Contacts</h2>
+        <p class="hint">People at this company who quotes can be addressed to — some customers have more than one buyer. The first name of whichever contact is picked on a quote is used to greet them there — "Dear John,".</p>
+        <div class="grid-3">
+          <div class="field"><label>Name</label><input type="text" id="ctName" placeholder="e.g. John Smith"></div>
+          <div class="field"><label>Email</label><input type="email" id="ctEmail"></div>
+          <div class="field"><label>Phone</label><input type="text" id="ctPhone"></div>
+        </div>
+        <div class="toolbar">
+          <button class="ghost" id="addContactBtn">+ Add contact</button>
+          <button class="ghost" id="cancelEditContactBtn" hidden>Cancel</button>
+        </div>
+        <table style="margin-top:12px;">
+          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th></th></tr></thead>
+          <tbody id="customerContactsBody"></tbody>
+        </table>
+      </div>
+
       <table style="margin-top:16px;">
-        <thead><tr><th>Company</th><th>Contact</th><th>Email</th><th></th></tr></thead>
+        <thead><tr><th>Company</th><th>Contacts</th><th>Email</th><th></th></tr></thead>
         <tbody id="customersBody"></tbody>
       </table>
     </div>
