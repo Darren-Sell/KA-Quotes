@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'member',
+    status TEXT NOT NULL DEFAULT 'active',
     created_at INTEGER NOT NULL
 );
 
@@ -160,6 +161,7 @@ MIGRATIONS = [
     ("products", "category", "TEXT NOT NULL DEFAULT ''"),
     ("settings", "default_summary", "TEXT NOT NULL DEFAULT ''"),
     ("quotes", "contact_id", "TEXT NOT NULL DEFAULT ''"),
+    ("users", "status", "TEXT NOT NULL DEFAULT 'active'"),
 ]
 
 

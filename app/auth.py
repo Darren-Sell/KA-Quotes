@@ -65,6 +65,11 @@ def get_current_user():
     from .db import get_db
     db = get_db()
     row = db.execute("SELECT * FROM users WHERE id = ?", (payload["uid"],)).fetchone()
+    if row and row["status"] == "disabled":
+        # Checked fresh from the DB on every request (not just at login), so
+        # disabling a user signs them out of any session they already have
+        # open — no separate token revocation needed.
+        return None
     g.current_user = row
     return row
 

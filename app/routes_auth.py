@@ -10,7 +10,7 @@ EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def public_user(row):
-    return {"id": row["id"], "name": row["name"], "email": row["email"], "role": row["role"]}
+    return {"id": row["id"], "name": row["name"], "email": row["email"], "role": row["role"], "status": row["status"]}
 
 
 def validate_email(email):
@@ -70,6 +70,8 @@ def login():
     row = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
     if not row or not check_password_hash(row["password_hash"], password):
         return jsonify({"error": "invalid_credentials"}), 401
+    if row["status"] == "disabled":
+        return jsonify({"error": "account_disabled"}), 403
 
     token = issue_token(row)
     resp = make_response(jsonify({"user": public_user(row)}))
@@ -149,7 +151,46 @@ def create_user():
     )
     db.commit()
     row = db.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
-    return jsonify({"user": public_user(row)}), 201
+    return jsonify(public_user(row)), 201
+
+
+@bp.put("/users/<uid>")
+@admin_required
+def update_user(uid):
+    current = get_current_user()
+    db = get_db()
+    row = db.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
+    if not row:
+        return jsonify({"error": "not_found"}), 404
+
+    data = request.get_json(silent=True) or {}
+
+    status = row["status"]
+    if "status" in data:
+        if data["status"] not in ("active", "disabled"):
+            return jsonify({"error": "invalid_status"}), 400
+        status = data["status"]
+
+    if current["id"] == uid and status != row["status"]:
+        return jsonify({"error": "cannot_change_own_status"}), 400
+
+    if row["role"] == "admin" and row["status"] == "active" and status == "disabled":
+        other_active_admins = db.execute(
+            "SELECT COUNT(*) AS c FROM users WHERE role = 'admin' AND status = 'active' AND id != ?", (uid,)
+        ).fetchone()["c"]
+        if other_active_admins == 0:
+            return jsonify({"error": "cannot_disable_last_admin"}), 400
+
+    password_hash = row["password_hash"]
+    if data.get("password"):
+        if not validate_password(data["password"]):
+            return jsonify({"error": "weak_password", "message": "Password must be at least 8 characters."}), 400
+        password_hash = generate_password_hash(data["password"])
+
+    db.execute("UPDATE users SET status = ?, password_hash = ? WHERE id = ?", (status, password_hash, uid))
+    db.commit()
+    row = db.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
+    return jsonify(public_user(row))
 
 
 @bp.delete("/users/<uid>")

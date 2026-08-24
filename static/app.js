@@ -187,8 +187,11 @@
       state.me = r.user;
       await loadApp();
     } catch (e) {
-      $("loginError").textContent = e.data && e.data.error === "invalid_credentials"
-        ? "Incorrect email or password." : friendlyError(e);
+      const loginErrorMap = {
+        invalid_credentials: "Incorrect email or password.",
+        account_disabled: "This account has been disabled. Ask an admin to re-enable it.",
+      };
+      $("loginError").textContent = (e.data && loginErrorMap[e.data.error]) || friendlyError(e);
     }
   }
 
@@ -1004,6 +1007,8 @@
   });
 
   /* ---------- Team / users (admin) ---------- */
+  let resettingPasswordUserId = null;
+
   function renderUsers() {
     const body = $("usersBody");
     body.innerHTML = state.users.length ? state.users.map(u => `
@@ -1011,10 +1016,73 @@
         <td>${escapeHtml(u.name)}</td>
         <td>${escapeHtml(u.email)}</td>
         <td><span class="badge role-${u.role}"><span class="dot"></span>${u.role === "admin" ? "Admin" : "Member"}</span></td>
+        <td><span class="badge ${u.status === "disabled" ? "rejected" : "accepted"}"><span class="dot"></span>${u.status === "disabled" ? "Disabled" : "Active"}</span></td>
         <td class="row-actions">
-          ${u.id === state.me.id ? "" : `<button class="ghost icon-btn danger del-user" title="Remove">🗑</button>`}
+          ${u.id === state.me.id ? "" : (resettingPasswordUserId === u.id ? `
+            <input type="password" class="reset-password-input" placeholder="New password (min 8 chars)" style="width:170px;">
+            <button class="ghost icon-btn save-reset-password" title="Save new password">✓</button>
+            <button class="ghost icon-btn cancel-reset-password" title="Cancel">✕</button>
+          ` : `
+            <button class="ghost icon-btn reset-password-user" title="Reset password">🔑</button>
+            <button class="ghost icon-btn toggle-status-user" title="${u.status === "disabled" ? "Re-enable" : "Disable"}">${u.status === "disabled" ? "▶" : "⏸"}</button>
+            <button class="ghost icon-btn danger del-user" title="Remove">🗑</button>
+          `)}
         </td>
-      </tr>`).join("") : emptyRow(4, "No team members yet.");
+      </tr>`).join("") : emptyRow(5, "No team members yet.");
+
+    body.querySelectorAll(".reset-password-user").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        resettingPasswordUserId = e.target.closest("tr").dataset.id;
+        renderUsers();
+        const input = body.querySelector(".reset-password-input");
+        if (input) input.focus();
+      });
+    });
+    body.querySelectorAll(".cancel-reset-password").forEach(btn => {
+      btn.addEventListener("click", () => { resettingPasswordUserId = null; renderUsers(); });
+    });
+    body.querySelectorAll(".save-reset-password").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const tr = e.target.closest("tr");
+        const id = tr.dataset.id;
+        const pw = tr.querySelector(".reset-password-input").value;
+        if (!pw || pw.length < 8) { alert("Password must be at least 8 characters."); return; }
+        try {
+          await api("PUT", "/users/" + id, { password: pw });
+          resettingPasswordUserId = null;
+          renderUsers();
+          alert("Password updated — share the new password with them directly.");
+        } catch (err) {
+          alert(friendlyError(err));
+        }
+      });
+    });
+    body.querySelectorAll(".reset-password-input").forEach(input => {
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); body.querySelector(".save-reset-password").click(); }
+        if (e.key === "Escape") { resettingPasswordUserId = null; renderUsers(); }
+      });
+    });
+
+    body.querySelectorAll(".toggle-status-user").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const id = e.target.closest("tr").dataset.id;
+        const u = state.users.find(u => u.id === id);
+        if (!u) return;
+        const newStatus = u.status === "disabled" ? "active" : "disabled";
+        if (newStatus === "disabled" && !confirm(`Disable ${u.name}? They won't be able to log in until you re-enable their account.`)) return;
+        try {
+          const updated = await api("PUT", "/users/" + id, { status: newStatus });
+          const idx = state.users.findIndex(u => u.id === id);
+          if (idx !== -1) state.users[idx] = updated;
+          renderUsers();
+        } catch (err) {
+          alert(err.data && err.data.error === "cannot_disable_last_admin"
+            ? "You can't disable the last remaining active admin." : friendlyError(err));
+        }
+      });
+    });
+
     body.querySelectorAll(".del-user").forEach(btn => {
       btn.addEventListener("click", async (e) => {
         const id = e.target.closest("tr").dataset.id;
