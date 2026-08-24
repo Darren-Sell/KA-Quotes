@@ -1023,6 +1023,7 @@
             <button class="ghost icon-btn save-reset-password" title="Save new password">✓</button>
             <button class="ghost icon-btn cancel-reset-password" title="Cancel">✕</button>
           ` : `
+            <button class="ghost toggle-role-user" style="padding:6px 10px; font-size:12px;" title="${u.role === "admin" ? "Change to member" : "Change to admin"}">${u.role === "admin" ? "Make member" : "Make admin"}</button>
             <button class="ghost icon-btn reset-password-user" title="Reset password">🔑</button>
             <button class="ghost icon-btn toggle-status-user" title="${u.status === "disabled" ? "Re-enable" : "Disable"}">${u.status === "disabled" ? "▶" : "⏸"}</button>
             <button class="ghost icon-btn danger del-user" title="Remove">🗑</button>
@@ -1077,8 +1078,30 @@
           if (idx !== -1) state.users[idx] = updated;
           renderUsers();
         } catch (err) {
-          alert(err.data && err.data.error === "cannot_disable_last_admin"
+          alert(err.data && err.data.error === "cannot_remove_last_admin"
             ? "You can't disable the last remaining active admin." : friendlyError(err));
+        }
+      });
+    });
+
+    body.querySelectorAll(".toggle-role-user").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const id = e.target.closest("tr").dataset.id;
+        const u = state.users.find(u => u.id === id);
+        if (!u) return;
+        const newRole = u.role === "admin" ? "member" : "admin";
+        const confirmMsg = newRole === "admin"
+          ? `Make ${u.name} an admin? They'll be able to manage the team, company settings, and export backups.`
+          : `Change ${u.name} to a member? They'll lose access to the team list, company settings, and backups.`;
+        if (!confirm(confirmMsg)) return;
+        try {
+          const updated = await api("PUT", "/users/" + id, { role: newRole });
+          const idx = state.users.findIndex(u => u.id === id);
+          if (idx !== -1) state.users[idx] = updated;
+          renderUsers();
+        } catch (err) {
+          alert(err.data && err.data.error === "cannot_remove_last_admin"
+            ? "You can't change the last remaining active admin to a member." : friendlyError(err));
         }
       });
     });

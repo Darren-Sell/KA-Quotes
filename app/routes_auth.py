@@ -165,21 +165,31 @@ def update_user(uid):
 
     data = request.get_json(silent=True) or {}
 
+    role = row["role"]
+    if "role" in data:
+        if data["role"] not in ("admin", "member"):
+            return jsonify({"error": "invalid_role"}), 400
+        role = data["role"]
+
     status = row["status"]
     if "status" in data:
         if data["status"] not in ("active", "disabled"):
             return jsonify({"error": "invalid_status"}), 400
         status = data["status"]
 
-    if current["id"] == uid and status != row["status"]:
-        return jsonify({"error": "cannot_change_own_status"}), 400
+    if current["id"] == uid and (role != row["role"] or status != row["status"]):
+        return jsonify({"error": "cannot_change_own_role_or_status"}), 400
 
-    if row["role"] == "admin" and row["status"] == "active" and status == "disabled":
+    # Whether this change would take away the last active admin - covers
+    # demoting them to member, disabling them, or both at once.
+    was_active_admin = row["role"] == "admin" and row["status"] == "active"
+    still_active_admin = role == "admin" and status == "active"
+    if was_active_admin and not still_active_admin:
         other_active_admins = db.execute(
             "SELECT COUNT(*) AS c FROM users WHERE role = 'admin' AND status = 'active' AND id != ?", (uid,)
         ).fetchone()["c"]
         if other_active_admins == 0:
-            return jsonify({"error": "cannot_disable_last_admin"}), 400
+            return jsonify({"error": "cannot_remove_last_admin"}), 400
 
     password_hash = row["password_hash"]
     if data.get("password"):
@@ -187,7 +197,7 @@ def update_user(uid):
             return jsonify({"error": "weak_password", "message": "Password must be at least 8 characters."}), 400
         password_hash = generate_password_hash(data["password"])
 
-    db.execute("UPDATE users SET status = ?, password_hash = ? WHERE id = ?", (status, password_hash, uid))
+    db.execute("UPDATE users SET role = ?, status = ?, password_hash = ? WHERE id = ?", (role, status, password_hash, uid))
     db.commit()
     row = db.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
     return jsonify(public_user(row))
