@@ -498,6 +498,34 @@
 
   /* ---------- Products ---------- */
   const productFilters = { search: "", category: "" };
+  let lastAddedProduct = null;
+  let productUndoTimer = null;
+
+  function showProductUndo(product) {
+    clearTimeout(productUndoTimer);
+    lastAddedProduct = product;
+    const label = [product.sku, product.name].filter(Boolean).join(" — ");
+    $("pUndoText").textContent = `Added "${label}".`;
+    $("pUndoRow").hidden = false;
+    productUndoTimer = setTimeout(hideProductUndo, 10000);
+  }
+
+  function hideProductUndo() {
+    clearTimeout(productUndoTimer);
+    productUndoTimer = null;
+    lastAddedProduct = null;
+    $("pUndoRow").hidden = true;
+  }
+
+  $("pUndoBtn").addEventListener("click", async () => {
+    if (!lastAddedProduct) return;
+    const id = lastAddedProduct.id;
+    hideProductUndo();
+    if (state.editingProductId === id) exitProductEditMode();
+    await api("DELETE", "/products/" + id);
+    state.products = state.products.filter(p => p.id !== id);
+    renderProducts(); renderCatalogQuickAdd();
+  });
   let manageCategoryRenamingId = null;
 
   function renderProductCategoryOptions() {
@@ -690,6 +718,7 @@
     body.querySelectorAll(".del-product").forEach(btn => {
       btn.addEventListener("click", async (e) => {
         const id = e.target.closest("tr").dataset.id;
+        if (lastAddedProduct && lastAddedProduct.id === id) hideProductUndo();
         if (state.editingProductId === id) exitProductEditMode();
         await api("DELETE", "/products/" + id);
         state.products = state.products.filter(p => p.id !== id);
@@ -776,6 +805,7 @@
     if (!name) { alert("Enter a description."); return; }
     if (state.editingProductId) {
       const id = state.editingProductId;
+      if (lastAddedProduct && lastAddedProduct.id === id) hideProductUndo();
       const updated = await api("PUT", "/products/" + id, { name, sku, price, category });
       const idx = state.products.findIndex(p => p.id === id);
       if (idx !== -1) state.products[idx] = updated;
@@ -790,6 +820,7 @@
     sortProducts(state.products);
     clearProductForm();
     renderProducts(); renderCatalogQuickAdd();
+    showProductUndo(product);
   });
   $("pName").addEventListener("input", (e) => autoGrow(e.target));
   autoGrow($("pName"));
