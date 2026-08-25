@@ -59,6 +59,7 @@
     <button data-view="newquote">New Quote</button>
     <button data-view="quotes">Quotes</button>
     <button data-view="products">Products</button>
+    <button data-view="screwjacks">Screw Jacks</button>
     <button data-view="customers">Customers</button>
     <button data-view="users" id="usersTabBtn" hidden>Team</button>
     <button data-view="settings">Settings</button>
@@ -294,6 +295,82 @@
         </table>
       </div>
       <p class="hint" id="pFilterSummary"></p>
+    </div>
+  </section>
+
+  <!-- SCREW JACKS (part code builder) -->
+  <section class="view" id="view-screwjacks">
+    <div class="card">
+      <div class="card-head"><h2>Screw jack part code builder</h2></div>
+      <p class="hint" style="margin-top:0;">Builds a part code using Kelston's screw jack coding system (from the Screw Jack Selection guide). Pick each option below, then add the result straight to the product catalog as a "Screw Jacks" category part — from there it works exactly like any other part on a quote.</p>
+
+      <div class="grid-2">
+        <div class="field">
+          <label>Jack model / nominal capacity</label>
+          <select id="sjModel"></select>
+        </div>
+        <div class="field">
+          <label>Screw jack type</label>
+          <select id="sjScrew"></select>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label>Gearbox execution</label>
+          <select id="sjGearbox"></select>
+        </div>
+        <div class="field">
+          <label>Gear ratio</label>
+          <select id="sjRatio"></select>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label>End attachment</label>
+          <select id="sjEnd"></select>
+        </div>
+        <div class="field">
+          <label>Protective bellows</label>
+          <select id="sjBellows"></select>
+        </div>
+      </div>
+      <div class="grid-3">
+        <div class="field">
+          <label>Travel of jack (mm)</label>
+          <input type="number" id="sjTravel" min="1" step="1" placeholder="e.g. 500">
+        </div>
+        <div class="field">
+          <label>Non-standard suffix (optional)</label>
+          <input type="text" id="sjSuffix" placeholder="e.g. NS1 — leave blank unless confirmed">
+        </div>
+        <div class="field">
+          <label>Unit price</label>
+          <input type="number" id="sjPrice" min="0" step="0.01">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Generated part code</label>
+        <div class="code-preview" id="sjCodePreview">—</div>
+      </div>
+      <div class="field">
+        <label>Description (shown on quotes — edit if needed)</label>
+        <textarea id="sjDescription" rows="2"></textarea>
+      </div>
+
+      <div class="error-text" id="sjFormError"></div>
+      <div class="toolbar">
+        <button class="primary" id="sjAddToCatalogBtn">+ Add to catalog</button>
+      </div>
+
+      <div style="margin-top:22px; padding-top:18px; border-top:1px solid var(--border);">
+        <div class="card-head"><h2 style="font-size:13px;">Screw jack parts already in your catalog</h2></div>
+        <table style="margin-top:0;">
+          <thead><tr><th style="width:26%">Part number</th><th>Description</th><th class="num" style="width:15%">Unit price</th></tr></thead>
+          <tbody id="sjCatalogBody"></tbody>
+        </table>
+        <button class="ghost" id="sjManageInProductsBtn" style="margin-top:10px;">Manage these in Products →</button>
+      </div>
     </div>
   </section>
 

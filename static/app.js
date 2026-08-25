@@ -268,6 +268,7 @@
     if (name === "dashboard") renderDashboard();
     if (name === "quotes") renderQuotesList();
     if (name === "products") renderProducts();
+    if (name === "screwjacks") renderScrewJackCatalogList();
     if (name === "customers") renderCustomers();
     if (name === "users") renderUsers();
     if (name === "newquote" && !state.editingQuoteId && !state.skipNextAutoReset) resetQuoteForm();
@@ -827,6 +828,140 @@
   });
   $("pName").addEventListener("input", (e) => autoGrow(e.target));
   autoGrow($("pName"));
+
+  /* ---------- Screw jack part code builder ----------
+     Coding system taken from Kelston's "Screw Jack Selection" guide, page 1:
+     {model}-{screw type}-{gearbox execution}-{gear ratio}-{end attachment}-{bellows}-{travel mm, 4 digits}
+     e.g. J05-KS-U-L-F-N-0500 = 200kN jack, keyed screw, upright gearbox, low
+     ratio, flanged end, no bellows, 500mm travel. This is purely additive —
+     it just builds a code/description and files it into the same Products
+     catalog everything else already uses, via the existing product + category APIs. */
+  const SJ_MODELS = [
+    { code: "J00", kn: 5 }, { code: "J01", kn: 10 }, { code: "J02", kn: 25 }, { code: "J03", kn: 50 },
+    { code: "J04", kn: 100 }, { code: "J051", kn: 200 }, { code: "J05", kn: 200 }, { code: "J06", kn: 300 },
+    { code: "J07", kn: 500 }, { code: "J08", kn: 750 }, { code: "J09", kn: 1000 },
+  ];
+  const SJ_SCREW_TYPES = [
+    { code: "TS", label: "Translating" },
+    { code: "KS", label: "Keyed" },
+    { code: "RS", label: "Rotating" },
+    { code: "TB", label: "Translating with backlash limiter" },
+    { code: "RB", label: "Rotating with backlash limiter" },
+  ];
+  const SJ_GEARBOX = [{ code: "U", label: "Upright" }, { code: "I", label: "Inverted" }];
+  const SJ_RATIOS = [{ code: "L", label: "Low" }, { code: "H", label: "High" }];
+  const SJ_END_ATTACHMENTS = [
+    { code: "F", label: "Flanged end" },
+    { code: "C", label: "Clevis end" },
+    { code: "T", label: "Threaded end" },
+    { code: "P", label: "Plain turned end" },
+  ];
+  const SJ_BELLOWS = [
+    { code: "V", label: "P.V.C" },
+    { code: "R", label: "Heat resistant" },
+    { code: "N", label: "Not specified" },
+  ];
+  const SJ_CATEGORY_NAME = "Screw Jacks";
+  let sjLastAutoDescription = "";
+
+  function sjFind(list, code) { return list.find(o => o.code === code) || list[0]; }
+
+  function sjFillSelect(id, options, labelFn) {
+    $(id).innerHTML = options.map(o => `<option value="${o.code}">${escapeHtml(labelFn(o))}</option>`).join("");
+  }
+
+  function initScrewJackSelects() {
+    sjFillSelect("sjModel", SJ_MODELS, o => `${o.code} — ${o.kn}kN`);
+    sjFillSelect("sjScrew", SJ_SCREW_TYPES, o => `${o.label} (${o.code})`);
+    sjFillSelect("sjGearbox", SJ_GEARBOX, o => `${o.label} (${o.code})`);
+    sjFillSelect("sjRatio", SJ_RATIOS, o => `${o.label} (${o.code})`);
+    sjFillSelect("sjEnd", SJ_END_ATTACHMENTS, o => `${o.label} (${o.code})`);
+    sjFillSelect("sjBellows", SJ_BELLOWS, o => `${o.label} (${o.code})`);
+    ["sjModel", "sjScrew", "sjGearbox", "sjRatio", "sjEnd", "sjBellows", "sjTravel", "sjSuffix"].forEach(id => {
+      $(id).addEventListener("input", updateScrewJackPreview);
+      $(id).addEventListener("change", updateScrewJackPreview);
+    });
+    updateScrewJackPreview();
+  }
+
+  function updateScrewJackPreview() {
+    const model = sjFind(SJ_MODELS, $("sjModel").value);
+    const screw = sjFind(SJ_SCREW_TYPES, $("sjScrew").value);
+    const gearbox = sjFind(SJ_GEARBOX, $("sjGearbox").value);
+    const ratio = sjFind(SJ_RATIOS, $("sjRatio").value);
+    const end = sjFind(SJ_END_ATTACHMENTS, $("sjEnd").value);
+    const bellows = sjFind(SJ_BELLOWS, $("sjBellows").value);
+    const travelRaw = $("sjTravel").value.trim();
+    const suffix = $("sjSuffix").value.trim();
+
+    const travelNum = parseInt(travelRaw, 10);
+    const travelValid = travelRaw !== "" && Number.isFinite(travelNum) && travelNum > 0;
+    const travelStr = travelValid ? String(travelNum).padStart(4, "0") : "----";
+
+    let code = [model.code, screw.code, gearbox.code, ratio.code, end.code, bellows.code, travelStr].join("-");
+    if (suffix) code += "-" + suffix.toUpperCase().replace(/\s+/g, "");
+    $("sjCodePreview").textContent = code;
+
+    const bellowsPhrase = bellows.code === "N" ? "no protective bellows" : `${bellows.label} protective bellows`;
+    let description = `${model.kn}kN screw jack — ${screw.label.toLowerCase()} screw, ${gearbox.label.toLowerCase()} gearbox, ${ratio.label.toLowerCase()} gear ratio, ${end.label.toLowerCase()}, ${bellowsPhrase}${travelValid ? `, ${travelNum}mm travel` : ""}`;
+    if (suffix) description += ` (non-standard: ${suffix})`;
+
+    // Keep auto-filling the description as selections change, but stop the
+    // moment the user hand-edits it away from the last auto-generated text.
+    const descField = $("sjDescription");
+    if (descField.value === "" || descField.value === sjLastAutoDescription) {
+      descField.value = description;
+    }
+    sjLastAutoDescription = description;
+    return { code, description, travelValid };
+  }
+
+  function renderScrewJackCatalogList() {
+    const body = $("sjCatalogBody");
+    const items = state.products.filter(p => p.category === SJ_CATEGORY_NAME);
+    body.innerHTML = items.length ? items.map(p => `
+      <tr>
+        <td class="pn-cell">${escapeHtml(p.sku || "")}</td>
+        <td>${escapeHtml(p.name)}</td>
+        <td class="num">${fmt(p.price)}</td>
+      </tr>`).join("") : emptyRow(3, "No screw jack parts added yet — build one above.");
+  }
+
+  $("sjAddToCatalogBtn").addEventListener("click", async () => {
+    const { code, travelValid } = updateScrewJackPreview();
+    const description = $("sjDescription").value.trim();
+    const price = parseFloat($("sjPrice").value) || 0;
+    $("sjFormError").textContent = "";
+
+    if (!travelValid) { $("sjFormError").textContent = "Enter the travel of the jack in millimetres."; return; }
+    if (!description) { $("sjFormError").textContent = "Enter a description."; return; }
+
+    const dup = state.products.some(p => p.sku === code);
+    if (dup && !confirm(`"${code}" already exists in the catalog. Add it again as a duplicate entry?`)) return;
+
+    try {
+      await createCategory(SJ_CATEGORY_NAME);
+      const product = await api("POST", "/products", { name: description, sku: code, price, category: SJ_CATEGORY_NAME });
+      state.products.push(product);
+      sortProducts(state.products);
+      renderProducts(); renderCatalogQuickAdd(); renderScrewJackCatalogList();
+      $("sjTravel").value = ""; $("sjSuffix").value = ""; $("sjPrice").value = ""; $("sjDescription").value = "";
+      sjLastAutoDescription = "";
+      updateScrewJackPreview();
+    } catch (err) {
+      $("sjFormError").textContent = friendlyError(err);
+    }
+  });
+
+  $("sjManageInProductsBtn").addEventListener("click", () => {
+    productFilters.category = SJ_CATEGORY_NAME;
+    productFilters.search = "";
+    $("pSearchInput").value = "";
+    showView("products");
+    $("pFilterCategory").value = SJ_CATEGORY_NAME;
+  });
+
+  initScrewJackSelects();
 
   /* ---------- Customers ---------- */
   function contactsForCustomer(customerId) {
