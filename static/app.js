@@ -1688,6 +1688,55 @@
     renderQuoteItems();
   }
 
+  // Matches the catalog against a part number field's typed value — by SKU
+  // first (so typing a code narrows straight to it), then falling back to
+  // description or category text, so typing e.g. "screw" surfaces the Screw
+  // Jacks parts even without knowing their exact code.
+  function matchProductsForPartNumber(query) {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    const scored = state.products.map(p => {
+      const sku = (p.sku || "").toLowerCase();
+      const name = (p.name || "").toLowerCase();
+      const category = (p.category || "").toLowerCase();
+      let score = -1;
+      if (sku.startsWith(q)) score = 0;
+      else if (sku.includes(q)) score = 1;
+      else if (name.includes(q)) score = 2;
+      else if (category.includes(q)) score = 3;
+      return { p, score };
+    }).filter(x => x.score >= 0);
+    scored.sort((a, b) => a.score - b.score || (a.p.sku || "").localeCompare(b.p.sku || ""));
+    return scored.slice(0, 8).map(x => x.p);
+  }
+
+  function renderPnSuggestions(tr, matches) {
+    const box = tr.querySelector(".pn-suggestions");
+    if (!box) return;
+    if (!matches.length) { box.innerHTML = ""; box.hidden = true; return; }
+    box.innerHTML = matches.map(p => {
+      const label = p.sku || "(no part number)";
+      const desc = (p.name || "").split("\n")[0];
+      return `<button type="button" class="pn-suggestion">
+        <span class="pn-sku">${escapeHtml(label)}</span>
+        <span class="pn-meta">${escapeHtml(desc)}${p.category ? " · " + escapeHtml(p.category) : ""} · ${fmt(p.price)}</span>
+      </button>`;
+    }).join("");
+    box.hidden = false;
+    box.querySelectorAll(".pn-suggestion").forEach((btn, i) => {
+      btn.addEventListener("mousedown", (e) => {
+        e.preventDefault(); // keep the input focused so blur doesn't hide this before the click lands
+        const p = matches[i];
+        const item = quoteItems.find(it => it.id === tr.dataset.id);
+        if (!p || !item) return;
+        item.partNumber = p.sku || "";
+        item.description = p.name || "";
+        item.unitPrice = p.price || 0;
+        renderQuoteItems();
+      });
+    });
+  }
+
   function autoGrow(el) {
     if (!el.value) { el.style.height = ""; return; } // let CSS min-height govern; scrollHeight would include wrapped placeholder text
     el.style.height = "auto";
@@ -1699,7 +1748,10 @@
     body.innerHTML = quoteItems.length ? quoteItems.map(it => `
       <tr data-id="${it.id}">
         <td>
-          <input type="text" class="it-partnum" placeholder="Part number" value="${escapeHtml(it.partNumber || "")}">
+          <div class="pn-autocomplete-wrap">
+            <input type="text" class="it-partnum" placeholder="Part number" value="${escapeHtml(it.partNumber || "")}" autocomplete="off">
+            <div class="pn-suggestions" hidden></div>
+          </div>
           <textarea class="it-desc" rows="1" placeholder="Description — add specs, part notes, etc.">${escapeHtml(it.description)}</textarea>
         </td>
         <td><input type="number" class="it-qty" min="0" step="1" value="${it.qty}"></td>
@@ -1714,7 +1766,42 @@
       if (!item) return;
       const partEl = tr.querySelector(".it-partnum");
       if (partEl) {
-        partEl.addEventListener("input", (e) => { item.partNumber = e.target.value; });
+        partEl.addEventListener("input", (e) => {
+          item.partNumber = e.target.value;
+          renderPnSuggestions(tr, matchProductsForPartNumber(e.target.value));
+        });
+        partEl.addEventListener("focus", (e) => {
+          renderPnSuggestions(tr, matchProductsForPartNumber(e.target.value));
+        });
+        partEl.addEventListener("blur", () => {
+          // Delay so a suggestion's mousedown (which already prevents the
+          // default focus change) has a moment to run its click logic first.
+          setTimeout(() => { const box = tr.querySelector(".pn-suggestions"); if (box) box.hidden = true; }, 120);
+        });
+        partEl.addEventListener("keydown", (e) => {
+          const box = tr.querySelector(".pn-suggestions");
+          if (!box || box.hidden) return;
+          const opts = Array.from(box.querySelectorAll(".pn-suggestion"));
+          if (!opts.length) return;
+          let idx = opts.findIndex(el => el.classList.contains("active"));
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            idx = (idx + 1) % opts.length;
+            opts.forEach(el => el.classList.remove("active"));
+            opts[idx].classList.add("active");
+            opts[idx].scrollIntoView({ block: "nearest" });
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            idx = idx <= 0 ? opts.length - 1 : idx - 1;
+            opts.forEach(el => el.classList.remove("active"));
+            opts[idx].classList.add("active");
+            opts[idx].scrollIntoView({ block: "nearest" });
+          } else if (e.key === "Enter") {
+            if (idx >= 0) { e.preventDefault(); opts[idx].dispatchEvent(new MouseEvent("mousedown")); }
+          } else if (e.key === "Escape") {
+            box.hidden = true;
+          }
+        });
       }
       const descEl = tr.querySelector(".it-desc");
       if (descEl) {
