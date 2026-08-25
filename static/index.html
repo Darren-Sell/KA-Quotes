@@ -304,6 +304,14 @@
       <div class="card-head"><h2>Screw jack part code builder</h2></div>
       <p class="hint" style="margin-top:0;">Builds a part code using Kelston's screw jack coding system (from the Screw Jack Selection guide). Pick each option below, then add the result straight to the product catalog as a "Screw Jacks" category part — from there it works exactly like any other part on a quote.</p>
 
+      <div class="toolbar" style="margin-bottom:16px;">
+        <button class="ghost" id="sjManageOptionsToggleBtn">Manage part code options</button>
+      </div>
+      <div class="card" id="sjManageOptionsPanel" hidden style="background:var(--surface-2); margin-bottom:18px;">
+        <p class="hint" style="margin-top:0;">Add, rename, or remove the options available in each list below — for example if you introduce a new jack model or attachment type. Deleting an option only removes it from this builder; any parts already added to the catalog with that code are not affected.</p>
+        <div id="sjManageOptionsGroups"></div>
+      </div>
+
       <div class="grid-2">
         <div class="field">
           <label>Jack model / nominal capacity</label>

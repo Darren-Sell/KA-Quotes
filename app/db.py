@@ -140,9 +140,25 @@ CREATE TABLE IF NOT EXISTS quote_items (
     sort_order INTEGER NOT NULL DEFAULT 0
 );
 
+-- Configurable option lists that feed the Screw Jack part code builder
+-- (Jack Model, Screw Jack Type, Gearbox Execution, Gear Ratio, End
+-- Attachment, Protective Bellows). Seeded from the Screw Jack Selection
+-- guide on first run (see _backfill_sj_options()) but fully editable from
+-- then on, so new product variants can be added without a code change.
+CREATE TABLE IF NOT EXISTS sj_options (
+    id TEXT PRIMARY KEY,
+    field TEXT NOT NULL,
+    code TEXT NOT NULL,
+    label TEXT NOT NULL,
+    kn REAL NOT NULL DEFAULT 0,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_quote_items_quote_id ON quote_items(quote_id);
 CREATE INDEX IF NOT EXISTS idx_quotes_customer_id ON quotes(customer_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_customer_id ON contacts(customer_id);
+CREATE INDEX IF NOT EXISTS idx_sj_options_field ON sj_options(field);
 """
 
 
@@ -211,6 +227,44 @@ def _backfill_contacts(db):
         )
 
 
+SJ_OPTION_DEFAULTS = {
+    # (code, label, kn) — kn only meaningful for "model", left as 0 elsewhere.
+    "model": [
+        ("J00", "J00", 5), ("J01", "J01", 10), ("J02", "J02", 25), ("J03", "J03", 50),
+        ("J04", "J04", 100), ("J051", "J051", 200), ("J05", "J05", 200), ("J06", "J06", 300),
+        ("J07", "J07", 500), ("J08", "J08", 750), ("J09", "J09", 1000),
+    ],
+    "screw": [
+        ("TS", "Translating", 0), ("KS", "Keyed", 0), ("RS", "Rotating", 0),
+        ("TB", "Translating with backlash limiter", 0), ("RB", "Rotating with backlash limiter", 0),
+    ],
+    "gearbox": [("U", "Upright", 0), ("I", "Inverted", 0)],
+    "ratio": [("L", "Low", 0), ("H", "High", 0)],
+    "end": [
+        ("F", "Flanged end", 0), ("C", "Clevis end", 0), ("T", "Threaded end", 0), ("P", "Plain turned end", 0),
+    ],
+    "bellows": [("V", "P.V.C", 0), ("R", "Heat resistant", 0), ("N", "Not specified", 0)],
+}
+
+
+def _backfill_sj_options(db):
+    """Seed the Screw Jack part-code builder's option lists from the Screw
+    Jack Selection guide, but only the very first time — once the table has
+    any rows in it (including an admin having deleted every default from a
+    given field down to zero), this does nothing further, so admin edits are
+    never overwritten on a later restart.
+    """
+    total = db.execute("SELECT COUNT(*) AS c FROM sj_options").fetchone()["c"]
+    if total > 0:
+        return
+    for field, options in SJ_OPTION_DEFAULTS.items():
+        for i, (code, label, kn) in enumerate(options):
+            db.execute(
+                "INSERT INTO sj_options (id, field, code, label, kn, sort_order, created_at) VALUES (?,?,?,?,?,?,?)",
+                (new_id(), field, code, label, kn, i, now()),
+            )
+
+
 def init_db(app):
     with app.app_context():
         db = get_db()
@@ -218,6 +272,7 @@ def init_db(app):
         _run_migrations(db)
         _backfill_categories(db)
         _backfill_contacts(db)
+        _backfill_sj_options(db)
         db.execute(
             "INSERT OR IGNORE INTO settings (id) VALUES (1)"
         )

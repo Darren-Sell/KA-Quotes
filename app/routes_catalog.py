@@ -216,6 +216,106 @@ def delete_category(cid):
     return jsonify({"ok": True})
 
 
+# ---------------- Screw jack part-code options ----------------
+# Configurable option lists (Jack Model, Screw Jack Type, Gearbox Execution,
+# Gear Ratio, End Attachment, Protective Bellows) that feed the Screw Jacks
+# part-code builder. Seeded once from the Screw Jack Selection guide (see
+# _backfill_sj_options in db.py) and fully editable from the Screw Jacks
+# page from then on, so new variants can be added without a code change.
+
+SJ_OPTION_FIELDS = ("model", "screw", "gearbox", "ratio", "end", "bellows")
+
+
+def sj_option_row_to_dict(row):
+    return {
+        "id": row["id"], "field": row["field"], "code": row["code"],
+        "label": row["label"], "kn": row["kn"], "sortOrder": row["sort_order"],
+    }
+
+
+@bp.get("/sj-options")
+@login_required
+def list_sj_options():
+    db = get_db()
+    rows = db.execute("SELECT * FROM sj_options ORDER BY field ASC, sort_order ASC, created_at ASC").fetchall()
+    return jsonify({"options": [sj_option_row_to_dict(r) for r in rows]})
+
+
+@bp.post("/sj-options")
+@login_required
+def create_sj_option():
+    data = request.get_json(silent=True) or {}
+    field = data.get("field")
+    code = (data.get("code") or "").strip()
+    label = (data.get("label") or "").strip()
+    kn = float(data.get("kn") or 0)
+
+    if field not in SJ_OPTION_FIELDS:
+        return jsonify({"error": "invalid_field"}), 400
+    if not code or not label:
+        return jsonify({"error": "code_and_label_required"}), 400
+
+    db = get_db()
+    clash = db.execute(
+        "SELECT id FROM sj_options WHERE field = ? AND code = ? COLLATE NOCASE", (field, code)
+    ).fetchone()
+    if clash:
+        return jsonify({"error": "code_taken"}), 409
+
+    next_order = db.execute(
+        "SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM sj_options WHERE field = ?", (field,)
+    ).fetchone()["n"]
+
+    oid = new_id()
+    db.execute(
+        "INSERT INTO sj_options (id, field, code, label, kn, sort_order, created_at) VALUES (?,?,?,?,?,?,?)",
+        (oid, field, code, label, kn, next_order, now()),
+    )
+    db.commit()
+    row = db.execute("SELECT * FROM sj_options WHERE id = ?", (oid,)).fetchone()
+    return jsonify(sj_option_row_to_dict(row)), 201
+
+
+@bp.put("/sj-options/<oid>")
+@login_required
+def update_sj_option(oid):
+    data = request.get_json(silent=True) or {}
+    db = get_db()
+    row = db.execute("SELECT * FROM sj_options WHERE id = ?", (oid,)).fetchone()
+    if not row:
+        return jsonify({"error": "not_found"}), 404
+
+    code = (data.get("code") or row["code"]).strip()
+    label = (data.get("label") or row["label"]).strip()
+    kn = float(data.get("kn", row["kn"]) or 0)
+    if not code or not label:
+        return jsonify({"error": "code_and_label_required"}), 400
+
+    clash = db.execute(
+        "SELECT id FROM sj_options WHERE field = ? AND code = ? COLLATE NOCASE AND id != ?",
+        (row["field"], code, oid),
+    ).fetchone()
+    if clash:
+        return jsonify({"error": "code_taken"}), 409
+
+    db.execute("UPDATE sj_options SET code = ?, label = ?, kn = ? WHERE id = ?", (code, label, kn, oid))
+    db.commit()
+    row = db.execute("SELECT * FROM sj_options WHERE id = ?", (oid,)).fetchone()
+    return jsonify(sj_option_row_to_dict(row))
+
+
+@bp.delete("/sj-options/<oid>")
+@login_required
+def delete_sj_option(oid):
+    db = get_db()
+    row = db.execute("SELECT * FROM sj_options WHERE id = ?", (oid,)).fetchone()
+    if not row:
+        return jsonify({"error": "not_found"}), 404
+    db.execute("DELETE FROM sj_options WHERE id = ?", (oid,))
+    db.commit()
+    return jsonify({"ok": True})
+
+
 # ---------------- Customers ----------------
 
 def customer_row_to_dict(row):

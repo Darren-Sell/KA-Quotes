@@ -33,6 +33,7 @@
     editingCustomerId: null,
     categories: [],
     contacts: [],
+    sjOptions: { model: [], screw: [], gearbox: [], ratio: [], end: [], bellows: [] },
     skipNextAutoReset: false,
     quotesSort: { key: "date", dir: "desc" },
   };
@@ -207,13 +208,14 @@
   }
 
   async function loadApp() {
-    const [settings, products, customers, quotes, categories, contacts] = await Promise.all([
+    const [settings, products, customers, quotes, categories, contacts, sjOptions] = await Promise.all([
       api("GET", "/settings"),
       api("GET", "/products"),
       api("GET", "/customers"),
       api("GET", "/quotes"),
       api("GET", "/categories"),
       api("GET", "/contacts"),
+      api("GET", "/sj-options"),
     ]);
     state.settings = settings;
     state.products = sortProducts(products.products);
@@ -221,6 +223,7 @@
     state.quotes = quotes.quotes;
     state.categories = categories.categories;
     state.contacts = contacts.contacts;
+    state.sjOptions = groupSjOptions(sjOptions.options);
 
     if (state.me.role === "admin") {
       const u = await api("GET", "/users");
@@ -251,6 +254,7 @@
     populateCustomerSelect();
     renderCatalogQuickAdd();
     renderProducts();
+    renderScrewJackSelects();
     renderCustomers();
     if (state.me.role === "admin") renderUsers();
     renderDashboard();
@@ -835,62 +839,68 @@
      e.g. J05-KS-U-L-F-N-0500 = 200kN jack, keyed screw, upright gearbox, low
      ratio, flanged end, no bellows, 500mm travel. This is purely additive —
      it just builds a code/description and files it into the same Products
-     catalog everything else already uses, via the existing product + category APIs. */
-  const SJ_MODELS = [
-    { code: "J00", kn: 5 }, { code: "J01", kn: 10 }, { code: "J02", kn: 25 }, { code: "J03", kn: 50 },
-    { code: "J04", kn: 100 }, { code: "J051", kn: 200 }, { code: "J05", kn: 200 }, { code: "J06", kn: 300 },
-    { code: "J07", kn: 500 }, { code: "J08", kn: 750 }, { code: "J09", kn: 1000 },
-  ];
-  const SJ_SCREW_TYPES = [
-    { code: "TS", label: "Translating" },
-    { code: "KS", label: "Keyed" },
-    { code: "RS", label: "Rotating" },
-    { code: "TB", label: "Translating with backlash limiter" },
-    { code: "RB", label: "Rotating with backlash limiter" },
-  ];
-  const SJ_GEARBOX = [{ code: "U", label: "Upright" }, { code: "I", label: "Inverted" }];
-  const SJ_RATIOS = [{ code: "L", label: "Low" }, { code: "H", label: "High" }];
-  const SJ_END_ATTACHMENTS = [
-    { code: "F", label: "Flanged end" },
-    { code: "C", label: "Clevis end" },
-    { code: "T", label: "Threaded end" },
-    { code: "P", label: "Plain turned end" },
-  ];
-  const SJ_BELLOWS = [
-    { code: "V", label: "P.V.C" },
-    { code: "R", label: "Heat resistant" },
-    { code: "N", label: "Not specified" },
+     catalog everything else already uses, via the existing product + category APIs.
+     The six option lists themselves (Jack Models, Screw Types, Gearbox
+     Execution, Gear Ratios, End Attachments, Protective Bellows) are stored
+     server-side (see /api/sj-options) and fully editable from the "Manage
+     part code options" panel below, so new variants don't need a code change. */
+  const SJ_FIELD_DEFS = [
+    { key: "model", label: "Jack Models", selectId: "sjModel", hasKn: true },
+    { key: "screw", label: "Screw Jack Types", selectId: "sjScrew", hasKn: false },
+    { key: "gearbox", label: "Gearbox Execution", selectId: "sjGearbox", hasKn: false },
+    { key: "ratio", label: "Gear Ratios", selectId: "sjRatio", hasKn: false },
+    { key: "end", label: "End Attachments", selectId: "sjEnd", hasKn: false },
+    { key: "bellows", label: "Protective Bellows", selectId: "sjBellows", hasKn: false },
   ];
   const SJ_CATEGORY_NAME = "Screw Jacks";
   let sjLastAutoDescription = "";
+  let sjManageRenamingId = null;
 
-  function sjFind(list, code) { return list.find(o => o.code === code) || list[0]; }
-
-  function sjFillSelect(id, options, labelFn) {
-    $(id).innerHTML = options.map(o => `<option value="${o.code}">${escapeHtml(labelFn(o))}</option>`).join("");
+  function groupSjOptions(list) {
+    const grouped = { model: [], screw: [], gearbox: [], ratio: [], end: [], bellows: [] };
+    (list || []).forEach(o => { if (grouped[o.field]) grouped[o.field].push(o); });
+    Object.keys(grouped).forEach(k => grouped[k].sort((a, b) => a.sortOrder - b.sortOrder));
+    return grouped;
   }
 
-  function initScrewJackSelects() {
-    sjFillSelect("sjModel", SJ_MODELS, o => `${o.code} — ${o.kn}kN`);
-    sjFillSelect("sjScrew", SJ_SCREW_TYPES, o => `${o.label} (${o.code})`);
-    sjFillSelect("sjGearbox", SJ_GEARBOX, o => `${o.label} (${o.code})`);
-    sjFillSelect("sjRatio", SJ_RATIOS, o => `${o.label} (${o.code})`);
-    sjFillSelect("sjEnd", SJ_END_ATTACHMENTS, o => `${o.label} (${o.code})`);
-    sjFillSelect("sjBellows", SJ_BELLOWS, o => `${o.label} (${o.code})`);
-    ["sjModel", "sjScrew", "sjGearbox", "sjRatio", "sjEnd", "sjBellows", "sjTravel", "sjSuffix"].forEach(id => {
-      $(id).addEventListener("input", updateScrewJackPreview);
-      $(id).addEventListener("change", updateScrewJackPreview);
+  function sjFind(field, code) {
+    const list = state.sjOptions[field] || [];
+    return list.find(o => o.code === code) || list[0];
+  }
+
+  function renderScrewJackSelects() {
+    SJ_FIELD_DEFS.forEach(f => {
+      const list = state.sjOptions[f.key] || [];
+      const prevValue = $(f.selectId).value;
+      $(f.selectId).innerHTML = list.map(o =>
+        `<option value="${escapeHtml(o.code)}">${escapeHtml(f.hasKn ? `${o.code} — ${o.kn}kN` : `${o.label} (${o.code})`)}</option>`
+      ).join("");
+      if (list.some(o => o.code === prevValue)) $(f.selectId).value = prevValue;
     });
     updateScrewJackPreview();
   }
 
+  function initScrewJackBuilder() {
+    ["sjModel", "sjScrew", "sjGearbox", "sjRatio", "sjEnd", "sjBellows", "sjTravel", "sjSuffix"].forEach(id => {
+      $(id).addEventListener("input", updateScrewJackPreview);
+      $(id).addEventListener("change", updateScrewJackPreview);
+    });
+    renderScrewJackSelects();
+  }
+
   function updateScrewJackPreview() {
-    const model = sjFind(SJ_MODELS, $("sjModel").value);
-    const screw = sjFind(SJ_SCREW_TYPES, $("sjScrew").value);
-    const gearbox = sjFind(SJ_GEARBOX, $("sjGearbox").value);
-    const ratio = sjFind(SJ_RATIOS, $("sjRatio").value);
-    const end = sjFind(SJ_END_ATTACHMENTS, $("sjEnd").value);
-    const bellows = sjFind(SJ_BELLOWS, $("sjBellows").value);
+    const missingFields = SJ_FIELD_DEFS.filter(f => !(state.sjOptions[f.key] || []).length);
+    if (missingFields.length) {
+      $("sjCodePreview").textContent = "Add at least one option to: " + missingFields.map(f => f.label).join(", ");
+      return { code: "", description: "", travelValid: false };
+    }
+
+    const model = sjFind("model", $("sjModel").value);
+    const screw = sjFind("screw", $("sjScrew").value);
+    const gearbox = sjFind("gearbox", $("sjGearbox").value);
+    const ratio = sjFind("ratio", $("sjRatio").value);
+    const end = sjFind("end", $("sjEnd").value);
+    const bellows = sjFind("bellows", $("sjBellows").value);
     const travelRaw = $("sjTravel").value.trim();
     const suffix = $("sjSuffix").value.trim();
 
@@ -915,6 +925,148 @@
     sjLastAutoDescription = description;
     return { code, description, travelValid };
   }
+
+  /* ---- Manage part code options (add / edit / delete each list) ---- */
+  function sjOptionRowHtml(f, o) {
+    const isEditing = sjManageRenamingId === o.id;
+    const codeCell = isEditing
+      ? `<input type="text" class="sj-edit-code" style="width:90px;" value="${escapeHtml(o.code)}">`
+      : escapeHtml(o.code);
+    const secondCell = f.hasKn
+      ? (isEditing ? `<input type="number" class="sj-edit-kn" min="0" step="1" style="width:100px;" value="${o.kn}">` : `${o.kn}kN`)
+      : (isEditing ? `<input type="text" class="sj-edit-label" style="width:100%;" value="${escapeHtml(o.label)}">` : escapeHtml(o.label));
+    const actions = isEditing ? `
+        <button class="ghost icon-btn sj-save-edit" title="Save">✓</button>
+        <button class="ghost icon-btn sj-cancel-edit" title="Cancel">✕</button>
+      ` : `
+        <button class="ghost icon-btn sj-edit-option" title="Edit">✎</button>
+        <button class="ghost icon-btn danger sj-delete-option" title="Delete">🗑</button>
+      `;
+    return `<tr data-id="${o.id}" data-field="${f.key}">
+      <td>${codeCell}</td><td>${secondCell}</td>
+      <td class="row-actions" style="justify-content:flex-end;">${actions}</td>
+    </tr>`;
+  }
+
+  function renderSjManageOptionsPanel() {
+    const container = $("sjManageOptionsGroups");
+    container.innerHTML = SJ_FIELD_DEFS.map(f => {
+      const rows = state.sjOptions[f.key] || [];
+      return `
+      <div style="margin-bottom:22px;">
+        <h3 style="font-size:13px; margin:0 0 8px;">${escapeHtml(f.label)}</h3>
+        <div class="toolbar" style="margin-bottom:6px;">
+          <input type="text" class="sj-new-code" data-field="${f.key}" placeholder="Code" style="width:100px;">
+          ${f.hasKn
+            ? `<input type="number" class="sj-new-kn" data-field="${f.key}" min="0" step="1" placeholder="Capacity (kN)" style="width:140px;">`
+            : `<input type="text" class="sj-new-label" data-field="${f.key}" placeholder="Label" style="flex:1; min-width:160px;">`}
+          <button type="button" class="primary sj-add-option" data-field="${f.key}">+ Add</button>
+        </div>
+        <div class="error-text sj-add-error" data-field="${f.key}"></div>
+        <table style="margin-top:6px;">
+          <thead><tr><th style="width:100px;">Code</th><th>${f.hasKn ? "Capacity" : "Label"}</th><th style="width:110px;"></th></tr></thead>
+          <tbody data-field-body="${f.key}">
+            ${rows.length ? rows.map(o => sjOptionRowHtml(f, o)).join("") : emptyRow(3, "No options yet — add one above.")}
+          </tbody>
+        </table>
+      </div>`;
+    }).join("");
+    wireSjManageOptionEvents();
+  }
+
+  function wireSjManageOptionEvents() {
+    const container = $("sjManageOptionsGroups");
+
+    container.querySelectorAll(".sj-add-option").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const field = btn.dataset.field;
+        const fieldDef = SJ_FIELD_DEFS.find(f => f.key === field);
+        const code = container.querySelector(`.sj-new-code[data-field="${field}"]`).value.trim();
+        const errEl = container.querySelector(`.sj-add-error[data-field="${field}"]`);
+        errEl.textContent = "";
+        let label, kn = 0;
+        if (fieldDef.hasKn) {
+          kn = parseFloat(container.querySelector(`.sj-new-kn[data-field="${field}"]`).value);
+          label = code;
+          if (!code) { errEl.textContent = "Enter a code."; return; }
+          if (!Number.isFinite(kn) || kn <= 0) { errEl.textContent = "Enter a valid capacity in kN."; return; }
+        } else {
+          label = container.querySelector(`.sj-new-label[data-field="${field}"]`).value.trim();
+          if (!code || !label) { errEl.textContent = "Enter both a code and a label."; return; }
+        }
+        try {
+          const created = await api("POST", "/sj-options", { field, code, label, kn });
+          state.sjOptions[field].push(created);
+          renderSjManageOptionsPanel();
+          renderScrewJackSelects();
+        } catch (err) {
+          errEl.textContent = err.data && err.data.error === "code_taken"
+            ? `"${code}" is already used in this list — codes must be unique.` : friendlyError(err);
+        }
+      });
+    });
+
+    container.querySelectorAll(".sj-edit-option").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        sjManageRenamingId = e.target.closest("tr").dataset.id;
+        renderSjManageOptionsPanel();
+      });
+    });
+    container.querySelectorAll(".sj-cancel-edit").forEach(btn => {
+      btn.addEventListener("click", () => { sjManageRenamingId = null; renderSjManageOptionsPanel(); });
+    });
+    container.querySelectorAll(".sj-save-edit").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const tr = e.target.closest("tr");
+        const id = tr.dataset.id;
+        const field = tr.dataset.field;
+        const fieldDef = SJ_FIELD_DEFS.find(f => f.key === field);
+        const code = tr.querySelector(".sj-edit-code").value.trim();
+        let label, kn;
+        if (fieldDef.hasKn) {
+          kn = parseFloat(tr.querySelector(".sj-edit-kn").value);
+          label = code;
+          if (!code || !Number.isFinite(kn) || kn <= 0) { alert("Enter a code and a valid capacity in kN."); return; }
+        } else {
+          label = tr.querySelector(".sj-edit-label").value.trim();
+          if (!code || !label) { alert("Enter both a code and a label."); return; }
+        }
+        try {
+          const updated = await api("PUT", "/sj-options/" + id, { code, label, kn });
+          const idx = state.sjOptions[field].findIndex(o => o.id === id);
+          if (idx !== -1) state.sjOptions[field][idx] = updated;
+          sjManageRenamingId = null;
+          renderSjManageOptionsPanel();
+          renderScrewJackSelects();
+        } catch (err) {
+          alert(err.data && err.data.error === "code_taken"
+            ? `"${code}" is already used in this list — codes must be unique.` : friendlyError(err));
+        }
+      });
+    });
+    container.querySelectorAll(".sj-delete-option").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const tr = e.target.closest("tr");
+        const id = tr.dataset.id;
+        const field = tr.dataset.field;
+        const opt = (state.sjOptions[field] || []).find(o => o.id === id);
+        if (!confirm(`Delete "${opt ? opt.code : ""}" from this list? Parts already built with this code are not affected.`)) return;
+        await api("DELETE", "/sj-options/" + id);
+        state.sjOptions[field] = state.sjOptions[field].filter(o => o.id !== id);
+        renderSjManageOptionsPanel();
+        renderScrewJackSelects();
+      });
+    });
+  }
+
+  $("sjManageOptionsToggleBtn").addEventListener("click", () => {
+    const panel = $("sjManageOptionsPanel");
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) {
+      sjManageRenamingId = null;
+      renderSjManageOptionsPanel();
+    }
+  });
 
   function renderScrewJackCatalogList() {
     const body = $("sjCatalogBody");
@@ -961,7 +1113,7 @@
     $("pFilterCategory").value = SJ_CATEGORY_NAME;
   });
 
-  initScrewJackSelects();
+  initScrewJackBuilder();
 
   /* ---------- Customers ---------- */
   function contactsForCustomer(customerId) {
